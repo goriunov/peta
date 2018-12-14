@@ -15,11 +15,13 @@ fn main() {
         .fold(writer, |writer, req| {
           // println!("{}", req.method());
 
-          let response = Response::new()
-            .status("404 Not Found")
-            .header("Server: Ultra")
-            .header("Content-Type: text/plain")
-            .body("Hello world!");
+          // let response = Response::new()
+          //   .status("404 Not Found")
+          //   .header("Server: Ultra")
+          //   .header("Content-Type: text/plain")
+          //   .body("Hello world!")
+          //   .write(writer)
+          //   .map_err(|err| eprintln!("connection error: {}", err))
 
           // Response::builder()
           //   .status(StatusCode::OK)
@@ -41,24 +43,31 @@ fn main() {
 
           // println!("{}", response);
 
-          // let response = match req.uri().path() {
-          //   "/" => {
-          //     "HTTP/1.1 200 Ok\r\nContent-Type: text/plain\r\nContent-Length: 11\r\n\r\nHello world"
-          //       .to_string()
-          //   }
-          //   _ => {
-          //     "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nConnection: close\r\nContent-Length: 10\r\n\r\nNot found!"
-          //       .to_string()
-          //   }
-          // };
-
-          // let res = response::generate_response(response);
-
-          // println!("{}", res);
+          let response = match req.uri().path() {
+            "/" => Response::new()
+              .status("200 Ok")
+              .header("Server: Ultra")
+              .header("Content-Type: text/plain")
+              .body("Got to main path"),
+            "/home" => Response::new()
+              .status("200 Ok")
+              .header("Server: Ultra")
+              .header("Content-Type: text/plain")
+              .body("Got to home path"),
+            _ => Response::new()
+              .status("404 Not Found")
+              .header("Server: Ultra")
+              .header("Content-Type: text/plain")
+              .body("404 Not Found"),
+          };
 
           response
             .write(writer)
             .map_err(|err| eprintln!("connection error: {}", err))
+
+          // let res = response::generate_response(response);
+
+          // println!("{}", res);
         })
         .map(|_| ());
 

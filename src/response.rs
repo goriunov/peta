@@ -3,6 +3,7 @@ use crate::writer;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 
+// need to optimize response generation
 pub struct Response {
   http_response: String,
 }
@@ -41,6 +42,7 @@ impl Response {
   }
 }
 
+// Old from response gen
 // pub fn generate_response(res: Response<String>) -> String {
 //   // String::from(
 //   //     "HTTP/1.1 404

@@ -62,8 +62,6 @@ impl Stream for Http {
             .body(())
             .unwrap();
 
-          // let response = response::Response::new
-
           self.buffer.clear();
           return Ok(Async::Ready(Some(request)));
         }
