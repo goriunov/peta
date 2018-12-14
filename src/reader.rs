@@ -5,8 +5,6 @@ use tokio::prelude::*;
 
 use futures::try_ready;
 
-use crate::response;
-
 use http::Request;
 
 pub struct Http {

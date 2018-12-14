@@ -60,7 +60,7 @@ where
     }
 
     match mem::replace(&mut self.state, State::Empty) {
-      State::Writing { a, buf, .. } => Ok(a.into()),
+      State::Writing { a, .. } => Ok(a.into()),
       State::Empty => panic!(),
     }
   }

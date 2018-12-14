@@ -7,6 +7,7 @@ use tokio::prelude::*;
 pub mod reader;
 pub mod response;
 pub mod writer;
+pub mod status;
 
 // some prelude to use futures stream
 pub mod prelude {
@@ -15,7 +16,7 @@ pub mod prelude {
 
 }
 
-// simple current runtime
+// simple current runtime spawn
 pub mod runtime {
   pub use tokio::runtime::current_thread::spawn;
 
@@ -51,7 +52,7 @@ impl Server {
       // builder.reuse_address(true).unwrap();
       builder.reuse_port(true).unwrap();
       builder.bind(addr).unwrap();
-      builder.listen(128).unwrap() // need to decide about backlog number
+      builder.listen(512).unwrap() // need to decide about backlog number
     };
     let listener = TcpListener::from_std(listener, &tokio::reactor::Handle::current()).unwrap();
     Server { listener }

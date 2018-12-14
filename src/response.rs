@@ -1,44 +1,80 @@
 use crate::writer;
 
 use tokio::net::TcpStream;
-use tokio::prelude::*;
 
 // need to optimize response generation
 pub struct Response {
-  http_response: String,
+  body: Vec<u8>,
+  header: Vec<u8>,
+  status: Vec<u8>,
+  version: Vec<u8>,
+  delimiter: [u8; 2],
 }
 
 impl Response {
   pub fn new() -> Response {
     Response {
-      http_response: String::from("HTTP/1.1 "),
+      version: Vec::from("HTTP/1.1 "),
+      status: Vec::new(),
+      header: Vec::new(),
+      body: Vec::new(),
+      delimiter: *b"\r\n",
     }
   }
 
   pub fn status(mut self, status: &str) -> Response {
-    self.http_response.push_str(status);
-    self.http_response.push_str("\r\n");
+    let status = status.as_bytes();
+    self.status.reserve(status.len() + 4);
+    self.status.extend_from_slice(status);
+    self.status.extend_from_slice(&self.delimiter);
+
     self
   }
 
   pub fn header(mut self, header: &str) -> Response {
-    self.http_response.push_str(header);
-    self.http_response.push_str("\r\n");
+    let header = header.as_bytes();
+    self.header.reserve(header.len() + 4);
+    self.header.extend_from_slice(header);
+    self.header.extend_from_slice(&self.delimiter);
+
     self
   }
 
   pub fn body(mut self, body: &str) -> Response {
-    let cl_header = format!("Content-Length: {}\r\n\r\n", body.len());
-    self.http_response.push_str(cl_header.as_str());
-    self.http_response.push_str(body);
+    let len = body.len();
+    let cl_header = format!("Content-Length: {}\r\n\r\n", len);
+    let cl_header_bytes = cl_header.as_bytes();
+
+    self.body.reserve(cl_header_bytes.len() + 8 + len);
+    self.body.extend_from_slice(cl_header_bytes);
+
+    let body = body.as_bytes();
+    self.body.extend_from_slice(body);
+
+    self
+  }
+
+  pub fn body_vec(mut self, body: Vec<u8>) -> Response {
+    let len = body.len();
+    let cl_header = format!("Content-Length: {}\r\n\r\n", len);
+    let cl_header_bytes = cl_header.as_bytes();
+    self.body.reserve(cl_header_bytes.len() + 8 + len);
+    self.body.extend_from_slice(cl_header_bytes);
+
+    self.body.extend_from_slice(&body[..]);
+
     self
   }
 
   pub fn write(
-    self,
+    mut self,
     writer: tokio::io::WriteHalf<TcpStream>,
   ) -> writer::WriteAll<tokio::io::WriteHalf<TcpStream>> {
-    writer::write_all(writer, self.http_response.into_bytes())
+    self.version.extend(self.status);
+    self.version.extend(self.header);
+    self.version.extend(self.body);
+
+    writer::write_all(writer, self.version)
   }
 }
 
