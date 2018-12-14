@@ -8,10 +8,6 @@ use futures::try_ready;
 
 use tokio::prelude::*;
 
-use crate::response;
-
-use http::Response;
-
 pub struct WriteAll<A> {
   state: State<A>,
 }
@@ -21,14 +17,14 @@ enum State<A> {
   Empty,
 }
 
-pub fn write_all<A>(a: A, res: Response<String>) -> WriteAll<A>
+pub fn write_all<A>(a: A, res: Vec<u8>) -> WriteAll<A>
 where
   A: AsyncWrite,
 {
   WriteAll {
     state: State::Writing {
       a: a,
-      buf: response::generate_response(res).into_bytes(),
+      buf: res,
       pos: 0,
     },
   }

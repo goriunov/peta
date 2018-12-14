@@ -10,8 +10,9 @@ pub mod writer;
 
 // some prelude to use futures stream
 pub mod prelude {
-  pub use http::*;
+  // pub use http::*;
   pub use tokio::prelude::*;
+
 }
 
 // simple current runtime
@@ -28,7 +29,16 @@ pub mod runtime {
   }
 }
 
-// below things is not important part
+///
+///
+///
+///
+///
+///
+///
+///
+///
+/// below things is not important part
 
 pub struct Server {
   listener: TcpListener,
@@ -38,10 +48,10 @@ impl Server {
   pub fn new(addr: &'static str) -> Server {
     let listener = {
       let builder = TcpBuilder::new_v4().unwrap();
-      builder.reuse_address(true).unwrap();
+      // builder.reuse_address(true).unwrap();
       builder.reuse_port(true).unwrap();
       builder.bind(addr).unwrap();
-      builder.listen(1024 * 8).unwrap() // need to decide about backlog number
+      builder.listen(128).unwrap() // need to decide about backlog number
     };
     let listener = TcpListener::from_std(listener, &tokio::reactor::Handle::current()).unwrap();
     Server { listener }

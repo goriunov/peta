@@ -1,6 +1,6 @@
 use simple_http::prelude::*;
-use simple_http::{reader::Http, response, runtime, writer, Server};
-use std::string::*;
+use simple_http::{reader::Http, response::Response, runtime, writer, Server};
+// use std::string::*;
 
 fn main() {
   let addr = "0.0.0.0:3000";
@@ -15,12 +15,18 @@ fn main() {
         .fold(writer, |writer, req| {
           // println!("{}", req.method());
 
-          let response = Response::builder()
-            .status(StatusCode::OK)
-            .header("Server", "Ultra")
-            .header("Content-Type", "text/plain")
-            .body("{\"test\": \"hello world\"}".to_string())
-            .unwrap();
+          let response = Response::new()
+            .status("404 Not Found")
+            .header("Server: Ultra")
+            .header("Content-Type: text/plain")
+            .body("Hello world!");
+
+          // Response::builder()
+          //   .status(StatusCode::OK)
+          //   .header("Server", "Ultra")
+          //   .header("Content-Type", "text/plain")
+          //   .body("{\"test\": \"hello world\"}".to_string())
+          //   .unwrap();
 
           // let res = format!(
           //   "{} {}\r\n\
@@ -50,7 +56,9 @@ fn main() {
 
           // println!("{}", res);
 
-          writer::write_all(writer, response).map_err(|err| eprintln!("connection error: {}", err))
+          response
+            .write(writer)
+            .map_err(|err| eprintln!("connection error: {}", err))
         })
         .map(|_| ());
 

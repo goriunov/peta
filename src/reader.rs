@@ -5,7 +5,7 @@ use tokio::prelude::*;
 
 use futures::try_ready;
 
-use std::collections::HashMap;
+use crate::response;
 
 use http::Request;
 
@@ -61,6 +61,8 @@ impl Stream for Http {
             .method(req.method.unwrap())
             .body(())
             .unwrap();
+
+          // let response = response::Response::new
 
           self.buffer.clear();
           return Ok(Async::Ready(Some(request)));
