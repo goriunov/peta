@@ -2,7 +2,7 @@ use crate::writer;
 
 use tokio::net::TcpStream;
 
-// need to optimize response generation
+// need to optimize response generation and vectors
 pub struct Response {
   body: Vec<u8>,
   header: Vec<u8>,

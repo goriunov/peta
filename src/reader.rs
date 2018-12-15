@@ -5,16 +5,16 @@ use tokio::prelude::*;
 
 use futures::try_ready;
 
-use http::Request;
+use crate::request::Request;
 
-pub struct Http {
+pub struct HttpReader {
   reader: tokio::io::ReadHalf<TcpStream>,
   buffer: BytesMut,
 }
 
-impl Http {
-  pub fn new(reader: tokio::io::ReadHalf<TcpStream>) -> Http {
-    Http {
+impl HttpReader {
+  pub fn new(reader: tokio::io::ReadHalf<TcpStream>) -> HttpReader {
+    HttpReader {
       reader,
       buffer: BytesMut::new(),
     }
@@ -32,9 +32,8 @@ impl Http {
   }
 }
 
-impl Stream for Http {
-  // need to optimize string string case
-  type Item = Request<()>;
+impl Stream for HttpReader {
+  type Item = Request;
   type Error = tokio::io::Error;
 
   fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -50,18 +49,19 @@ impl Stream for Http {
       let mut req = httparse::Request::new(&mut headers);
 
       // handle things
-      let parsed = req.parse(&self.buffer[..]).unwrap();
+      let parsed = req
+        .parse(&self.buffer[..])
+        .expect("Could not parse http request");
 
       match parsed {
         httparse::Status::Complete(_) => {
-          let request = Request::builder()
-            .uri(req.path.unwrap())
-            .method(req.method.unwrap())
-            .body(())
-            .unwrap();
+          let req = Request::new(
+            req.path.expect("Could not get path").to_string(),
+            req.method.expect("Could not get method").to_string(),
+          );
 
           self.buffer.clear();
-          return Ok(Async::Ready(Some(request)));
+          return Ok(Async::Ready(Some(req)));
         }
         httparse::Status::Partial => {}
       };

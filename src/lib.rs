@@ -5,9 +5,10 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 
 pub mod reader;
+pub mod request;
 pub mod response;
-pub mod writer;
 pub mod status;
+pub mod writer;
 
 // some prelude to use futures stream
 pub mod prelude {
@@ -18,7 +19,14 @@ pub mod prelude {
 
 // simple current runtime spawn
 pub mod runtime {
-  pub use tokio::runtime::current_thread::spawn;
+  // pub use tokio::runtime::current_thread::spawn;
+  pub fn spawn<F>(future: F) -> Result<(), ()>
+  where
+    F: futures::Future<Item = (), Error = ()> + 'static,
+  {
+    tokio::runtime::current_thread::spawn(future);
+    Ok(())
+  }
 
   pub fn run<F>(future: F)
   where
@@ -40,6 +48,7 @@ pub mod runtime {
 ///
 ///
 /// below things is not important part
+/// Can be used to scale between threads
 
 pub struct Server {
   listener: TcpListener,
