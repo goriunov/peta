@@ -1,10 +1,11 @@
 use simple_http::prelude::*;
-use simple_http::{reader::HttpReader, response::Response, runtime, status, Server};
+use simple_http::{
+  reader::HttpReader, response::Response, response::StatusMessage, runtime, Server,
+};
 
-// timer example
-use tokio::timer::Delay;
-
+// for timer example
 use std::time::{Duration, Instant};
+use tokio::timer::Delay;
 
 fn main() {
   let addr = "0.0.0.0:3000";
@@ -18,11 +19,13 @@ fn main() {
         .fold(writer, |writer, req| {
           // let mut rsp = Response::new();
 
-          Response::new()
-            .header("Server", "Ultra")
-            .header("Content-Type", "text/plain")
-            .body("Hello world!")
-            .write(writer)
+          let rsp = Response::new()
+            .status(StatusMessage::NOT_FOUND)
+            .header("Content-Type", "text/plain");
+          // .body("Hello world!");
+          // .write(writer)
+
+          hello_world(rsp).and_then(move |rsp| rsp.write(writer))
 
           // rsp.write(writer)
           // write(rsp, writer)
@@ -69,22 +72,28 @@ fn main() {
   runtime::run(server);
 }
 
-// pub fn hello_world(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
-//   let hello = futures::future::ok(rsp.status(status::OK).body("Hello world"));
+pub fn hello_world(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
+  let hello = futures::future::ok(rsp.status(StatusMessage::OK).body("Hello world"));
 
-//   Box::new(hello)
-// }
+  Box::new(hello)
+}
 
-// pub fn delay(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
-//   // delay example
-//   let when = Instant::now() + Duration::from_millis(2000);
+pub fn delay(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
+  // delay example
+  let when = Instant::now() + Duration::from_millis(2000);
 
-//   let delay = Delay::new(when)
-//     .map_err(|e| panic!("delay errored; err={:?}", e))
-//     .and_then(move |_| Ok(rsp.status(status::OK).body("/ got in Index function")));
+  let delay = Delay::new(when)
+    .map_err(|e| panic!("delay errored; err={:?}", e))
+    .and_then(move |_| {
+      Ok(
+        rsp
+          .status(StatusMessage::OK)
+          .body("/ got in Index function"),
+      )
+    });
 
-//   Box::new(delay)
-// }
+  Box::new(delay)
+}
 
 // pub fn not_found(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
 //   let at404 = futures::future::ok(rsp.status(status::NOT_FOUND).body("Could not find"));

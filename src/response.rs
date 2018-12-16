@@ -12,8 +12,9 @@ pub struct Response {
   status_message: StatusMessage,
 }
 
-enum StatusMessage {
-  Ok,
+pub enum StatusMessage {
+  OK,
+  NOT_FOUND,
 
   // custom status implementation
   Custom(u32, String),
@@ -24,27 +25,32 @@ impl Response {
     Response {
       headers: Vec::new(),
       response: Vec::new(),
-      status_message: StatusMessage::Ok,
+      status_message: StatusMessage::OK,
     }
   }
 
-  pub fn status(&mut self, code: u32, message: &str) -> &mut Response {
+  pub fn status(mut self, status: StatusMessage) -> Response {
+    self.status_message = status;
+    self
+  }
+
+  pub fn custom_status(mut self, code: u32, message: &str) -> Response {
     self.status_message = StatusMessage::Custom(code, message.to_string());
     self
   }
 
-  pub fn header(&mut self, name: &str, val: &str) -> &mut Response {
+  pub fn header(mut self, name: &str, val: &str) -> Response {
     self.headers.push((name.to_string(), val.to_string()));
     self
   }
 
-  pub fn body(&mut self, s: &str) -> &mut Response {
+  pub fn body(mut self, s: &str) -> Response {
     self.response = s.as_bytes().to_vec();
     self
   }
 
   pub fn write(
-    &mut self,
+    &self,
     writer: tokio::io::WriteHalf<TcpStream>,
   ) -> writer::WriteAll<tokio::io::WriteHalf<TcpStream>> {
     let mut buf = BytesMut::with_capacity(4096);
@@ -102,7 +108,8 @@ impl<'a> fmt::Write for FastWrite<'a> {
 impl fmt::Display for StatusMessage {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match *self {
-      StatusMessage::Ok => f.pad("200 OK"),
+      StatusMessage::OK => f.pad("200 OK"),
+      StatusMessage::NOT_FOUND => f.pad("404 Not Found"),
       StatusMessage::Custom(c, ref s) => write!(f, "{} {}", c, s),
     }
   }

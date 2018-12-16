@@ -1,4 +1,4 @@
-// This part is taken from tokio::io module and modified to accept Vec<u8> instead of &str
+// This part is taken from tokio::io module and modified to accept BytesMut instead of &str
 use std::io;
 use std::mem;
 

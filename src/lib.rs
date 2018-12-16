@@ -7,7 +7,6 @@ use tokio::prelude::*;
 pub mod reader;
 pub mod request;
 pub mod response;
-pub mod status;
 pub mod writer;
 
 // some prelude to use futures stream
@@ -47,6 +46,7 @@ pub mod runtime {
 ///
 /// below things is not important part
 /// Can be used to scale between threads
+/// added reuse address
 
 pub struct Server {
   listener: TcpListener,
