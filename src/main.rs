@@ -1,8 +1,7 @@
 use simple_http::prelude::*;
 use simple_http::{reader::HttpReader, response::Response, runtime, status, Server};
 
-// for timer example
-use tokio::prelude::*;
+// timer example
 use tokio::timer::Delay;
 
 use std::time::{Duration, Instant};
@@ -43,18 +42,16 @@ fn main() {
           // rsp.write(writer)
 
           // data
-
-          index(rsp)
-            .map_err(|e| panic!("delay errored;"))
-            .and_then(move |rsp: Response| rsp.write(writer))
-
-          // match req.path() {
-          //   "/" => index(rsp),
-          //   _ => not_found(rsp),
-          // }
-          // .write(writer)
+          // delay(rsp, writer).map_err(|e| panic!("delay errored;"))
+          // not_found(rsp)
+          match req.path() {
+            "/" => hello_world(rsp),
+            "/delay" => delay(rsp),
+            _ => not_found(rsp),
+          }
+          .and_then(move |res| res.write(writer))
         })
-        .map_err(|e| panic!("delay errored; err={:?}", e))
+        .map_err(|e| println!("Error in http reading; err={:?}", e))
         .map(|_| ());
 
       // spawn each connection
@@ -65,27 +62,25 @@ fn main() {
   runtime::run(server);
 }
 
-pub fn index(rsp: Response) -> impl Future<Item = Response> {
-  // delay example
-  let when = Instant::now() + Duration::from_millis(5000);
+pub fn hello_world(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
+  let hello = futures::future::ok(rsp.status(status::OK).body("Hello world"));
 
-  Delay::new(when)
-    .map_err(|e| panic!("delay errored; err={:?}", e))
-    .and_then(move |_| Ok(rsp.status(status::OK).body("/ got in Index function")))
-  // .and_then(|_| Ok(()))
-  // let when = Instant::now() + Duration::from_millis(100);
-
-  // Delay::new(when)
-  //   .map_err(|e| panic!("delay errored; err={:?}", e))
-  //   .and_then(|_| Ok(rsp.status(status::OK).body("/ got in Index function")))
-  //   .map(|resp| resp.write(writer))
-  // runtime::spawn(time)
-  // do some cool logic
-
-  // do some request to the db
-  // rsp.status(status::OK).body("/ got in Index function")
+  Box::new(hello)
 }
 
-pub fn not_found(rsp: Response) -> Response {
-  rsp.status(status::NOT_FOUND).body("Could not find")
+pub fn delay(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
+  // delay example
+  let when = Instant::now() + Duration::from_millis(2000);
+
+  let delay = Delay::new(when)
+    .map_err(|e| panic!("delay errored; err={:?}", e))
+    .and_then(move |_| Ok(rsp.status(status::OK).body("/ got in Index function")));
+
+  Box::new(delay)
+}
+
+pub fn not_found(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
+  let at404 = futures::future::ok(rsp.status(status::NOT_FOUND).body("Could not find"));
+
+  Box::new(at404)
 }

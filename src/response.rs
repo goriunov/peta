@@ -80,14 +80,14 @@ impl Response {
 
 // Old from response gen
 // pub fn generate_response(res: Response<String>) -> String {
-//   // String::from(
-//   //     "HTTP/1.1 404
-//   // server: Ultra
-//   // content-type: text/plain
-//   // content-length: 9
+  // String::from(
+  //     "HTTP/1.1 404
+  // server: Ultra
+  // content-type: text/plain
+  // content-length: 9
 
-//   // My string",
-//   //   )
+  // My string",
+  //   )
 
 //   let mut rsp = "HTTP/1.1 ".to_owned() + res.status().as_str() + "\r\n";
 
