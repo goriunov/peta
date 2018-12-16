@@ -12,9 +12,7 @@ pub mod writer;
 
 // some prelude to use futures stream
 pub mod prelude {
-  // pub use http::*;
   pub use tokio::prelude::*;
-
 }
 
 // simple current runtime spawn

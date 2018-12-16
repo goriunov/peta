@@ -58,6 +58,7 @@ impl Stream for HttpReader {
           let req = Request::new(
             req.path.expect("Could not get path").to_string(),
             req.method.expect("Could not get method").to_string(),
+            req.version.expect("Could not get method").to_string(),
           );
 
           self.buffer.clear();

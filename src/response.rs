@@ -1,106 +1,109 @@
 use crate::writer;
 
+use std::fmt::{self, Write};
+
 use tokio::net::TcpStream;
 
-// need to optimize response generation and vectors
+use bytes::{BufMut, BytesMut};
+
 pub struct Response {
-  body: Vec<u8>,
-  header: Vec<u8>,
-  status: Vec<u8>,
-  version: Vec<u8>,
-  delimiter: [u8; 2],
+  headers: Vec<(String, String)>,
+  response: Vec<u8>,
+  status_message: StatusMessage,
+}
+
+enum StatusMessage {
+  Ok,
+
+  // custom status implementation
+  Custom(u32, String),
 }
 
 impl Response {
   pub fn new() -> Response {
     Response {
-      version: Vec::from("HTTP/1.1 "),
-      status: Vec::new(),
-      header: Vec::new(),
-      body: Vec::new(),
-      delimiter: *b"\r\n",
+      headers: Vec::new(),
+      response: Vec::new(),
+      status_message: StatusMessage::Ok,
     }
   }
 
-  pub fn status(mut self, status: &str) -> Response {
-    let status = status.as_bytes();
-    self.status.reserve(status.len() + 4);
-    self.status.extend_from_slice(status);
-    self.status.extend_from_slice(&self.delimiter);
-
+  pub fn status(&mut self, code: u32, message: &str) -> &mut Response {
+    self.status_message = StatusMessage::Custom(code, message.to_string());
     self
   }
 
-  pub fn header(mut self, header: &str) -> Response {
-    let header = header.as_bytes();
-    self.header.reserve(header.len() + 4);
-    self.header.extend_from_slice(header);
-    self.header.extend_from_slice(&self.delimiter);
-
+  pub fn header(&mut self, name: &str, val: &str) -> &mut Response {
+    self.headers.push((name.to_string(), val.to_string()));
     self
   }
 
-  pub fn body(mut self, body: &str) -> Response {
-    let len = body.len();
-    let cl_header = format!("Content-Length: {}\r\n\r\n", len);
-    let cl_header_bytes = cl_header.as_bytes();
-
-    self.body.reserve(cl_header_bytes.len() + 8 + len);
-    self.body.extend_from_slice(cl_header_bytes);
-
-    let body = body.as_bytes();
-    self.body.extend_from_slice(body);
-
-    self
-  }
-
-  pub fn body_vec(mut self, body: Vec<u8>) -> Response {
-    let len = body.len();
-    let cl_header = format!("Content-Length: {}\r\n\r\n", len);
-    let cl_header_bytes = cl_header.as_bytes();
-    self.body.reserve(cl_header_bytes.len() + 8 + len);
-    self.body.extend_from_slice(cl_header_bytes);
-
-    self.body.extend_from_slice(&body[..]);
-
+  pub fn body(&mut self, s: &str) -> &mut Response {
+    self.response = s.as_bytes().to_vec();
     self
   }
 
   pub fn write(
-    mut self,
+    &mut self,
     writer: tokio::io::WriteHalf<TcpStream>,
   ) -> writer::WriteAll<tokio::io::WriteHalf<TcpStream>> {
-    self.version.extend(self.status);
-    self.version.extend(self.header);
-    self.version.extend(self.body);
+    let mut buf = BytesMut::with_capacity(4096);
+    let length = self.response.len();
+    // let now = ::date::now();
 
-    writer::write_all(writer, self.version)
+    write!(
+      FastWrite(&mut buf),
+      "\
+       HTTP/1.1 {}\r\n\
+       Server: Ultra\r\n\
+       Content-Length: {}\r\n\
+       ",
+      self.status_message,
+      length,
+      // need to put date properly
+    )
+    .unwrap();
+
+    for &(ref k, ref v) in &self.headers {
+      push(&mut buf, k.as_bytes());
+      push(&mut buf, ": ".as_bytes());
+      push(&mut buf, v.as_bytes());
+      push(&mut buf, "\r\n".as_bytes());
+    }
+
+    push(&mut buf, "\r\n".as_bytes());
+    push(&mut buf, self.response.as_slice());
+
+    writer::write_all(writer, buf)
   }
 }
 
-// Old from response gen
-// pub fn generate_response(res: Response<String>) -> String {
-  // String::from(
-  //     "HTTP/1.1 404
-  // server: Ultra
-  // content-type: text/plain
-  // content-length: 9
+fn push(buf: &mut BytesMut, data: &[u8]) {
+  buf.reserve(data.len());
+  unsafe {
+    buf.bytes_mut()[..data.len()].copy_from_slice(data);
+    buf.advance_mut(data.len());
+  }
+}
 
-  // My string",
-  //   )
+struct FastWrite<'a>(&'a mut BytesMut);
 
-//   let mut rsp = "HTTP/1.1 ".to_owned() + res.status().as_str() + "\r\n";
+impl<'a> fmt::Write for FastWrite<'a> {
+  fn write_str(&mut self, s: &str) -> fmt::Result {
+    push(&mut *self.0, s.as_bytes());
+    Ok(())
+  }
 
-//   // handler all other headers
-//   let headers = res.headers();
+  fn write_fmt(&mut self, args: fmt::Arguments) -> fmt::Result {
+    fmt::write(self, args)
+  }
+}
 
-//   for (key, value) in headers.iter() {
-//     rsp = rsp + key.as_str() + ": " + value.to_str().unwrap() + "\r\n";
-//   }
-
-//   let body = res.body();
-//   rsp = rsp + "content-length: " + format!("{}", body.len()).as_str() + "\r\n\r\n" + body;
-
-//   // println!("{}", rsp);
-//   rsp
-// }
+impl fmt::Display for StatusMessage {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match *self {
+      StatusMessage::Ok => f.pad("200 OK"),
+      StatusMessage::Custom(c, ref s) => write!(f, "{} {}", c, s),
+    }
+  }
+}

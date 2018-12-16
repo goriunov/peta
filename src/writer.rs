@@ -8,16 +8,18 @@ use futures::try_ready;
 
 use tokio::prelude::*;
 
+use bytes::BytesMut;
+
 pub struct WriteAll<A> {
   state: State<A>,
 }
 
 enum State<A> {
-  Writing { a: A, buf: Vec<u8>, pos: usize },
+  Writing { a: A, buf: BytesMut, pos: usize },
   Empty,
 }
 
-pub fn write_all<A>(a: A, res: Vec<u8>) -> WriteAll<A>
+pub fn write_all<A>(a: A, res: BytesMut) -> WriteAll<A>
 where
   A: AsyncWrite,
 {
