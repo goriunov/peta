@@ -18,15 +18,15 @@ fn main() {
       let conn = HttpReader::new(reader)
         .fold(writer, |writer, req| {
           // let mut rsp = Response::new();
-          let method = req.method();
+          let path = req.path();
 
           let rsp = Response::new()
             .status(StatusMessage::NOT_FOUND)
             .header("Content-Type", "text/plain");
 
-          match method {
+          match path {
             "/" => hello_world(rsp),
-            _ => hello_world(rsp),
+            _ => delay(rsp),
           }
           .and_then(move |rsp| rsp.write(writer))
 
@@ -91,7 +91,7 @@ pub fn delay(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Erro
       Ok(
         rsp
           .status(StatusMessage::OK)
-          .body("/ got in Index function"),
+          .body("Got in delay page 2000ms"),
       )
     });
 
