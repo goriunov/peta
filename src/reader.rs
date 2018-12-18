@@ -44,30 +44,15 @@ impl Stream for HttpReader {
     }
 
     if !self.buffer.is_empty() {
-      // need to optimize http parser and hashmap
-      let mut headers = [httparse::EMPTY_HEADER; 16];
-      let mut req = httparse::Request::new(&mut headers);
-
-      // handle things
-      let parsed = req
-        .parse(&self.buffer[..])
-        .expect("Could not parse http request");
-
-      match parsed {
-        httparse::Status::Complete(_) => {
-          let req = Request::new(
-            req.path.expect("Could not get path").to_string(),
-            req.method.expect("Could not get method").to_string(),
-            req.version.expect("Could not get method").to_string(),
-          );
-
+      match Request::decode(&mut self.buffer).expect("Could not create request") {
+        Some(req) => {
           self.buffer.clear();
           return Ok(Async::Ready(Some(req)));
         }
-        httparse::Status::Partial => {}
+        None => {}
       };
     }
 
-    return Ok(Async::NotReady);
+    Ok(Async::NotReady)
   }
 }

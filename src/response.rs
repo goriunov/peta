@@ -55,7 +55,6 @@ impl Response {
   ) -> writer::WriteAll<tokio::io::WriteHalf<TcpStream>> {
     let mut buf = BytesMut::with_capacity(4096);
     let length = self.response.len();
-    // let now = ::date::now();
 
     write!(
       FastWrite(&mut buf),

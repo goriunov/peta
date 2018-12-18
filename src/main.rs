@@ -18,14 +18,17 @@ fn main() {
       let conn = HttpReader::new(reader)
         .fold(writer, |writer, req| {
           // let mut rsp = Response::new();
+          let method = req.method();
 
           let rsp = Response::new()
             .status(StatusMessage::NOT_FOUND)
             .header("Content-Type", "text/plain");
-          // .body("Hello world!");
-          // .write(writer)
 
-          hello_world(rsp).and_then(move |rsp| rsp.write(writer))
+          match method {
+            "/" => hello_world(rsp),
+            _ => hello_world(rsp),
+          }
+          .and_then(move |rsp| rsp.write(writer))
 
           // rsp.write(writer)
           // write(rsp, writer)
