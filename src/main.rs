@@ -19,6 +19,11 @@ fn main() {
         .fold(writer, |writer, req| {
           // let mut rsp = Response::new();
           let path = req.path();
+          // println!(
+          //   "Body: {}, len: {}",
+          //   std::str::from_utf8(req.body()).unwrap(),
+          //   req.body().len()
+          // );
 
           let rsp = Response::new()
             .status(StatusMessage::NOT_FOUND)
@@ -76,6 +81,7 @@ fn main() {
 }
 
 pub fn hello_world(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
+  // you can actually map all futures and return Ok result
   let hello = futures::future::ok(rsp.status(StatusMessage::OK).body("Hello world"));
 
   Box::new(hello)

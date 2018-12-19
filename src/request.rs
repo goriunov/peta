@@ -6,6 +6,7 @@ pub struct Request {
   method: Slice,
   path: Slice,
   version: u8,
+  body: BytesMut,
   // TODO: use a small vec to avoid this unconditional allocation
   headers: Vec<(Slice, Slice)>,
   data: BytesMut,
@@ -13,6 +14,7 @@ pub struct Request {
 
 impl Request {
   pub fn decode(buf: &mut BytesMut) -> Result<Option<Request>, ()> {
+    // println!("Message is: {}", std::str::from_utf8(buf).unwrap());
     // parse http
     let (method, path, version, headers, amt) = {
       let mut headers = [httparse::EMPTY_HEADER; 16];
@@ -50,6 +52,7 @@ impl Request {
         version: version,
         headers: headers,
         data: buf.split_to(amt),
+        body: buf.split_off(0),
       }
       .into(),
     )
@@ -67,6 +70,14 @@ impl Request {
 
   pub fn version(&self) -> u8 {
     self.version
+  }
+
+  pub fn body(&self) -> &BytesMut {
+    &self.body
+  }
+
+  pub fn body_mut(&mut self) -> &mut BytesMut {
+    &mut self.body
   }
 
   fn slice(&self, slice: &Slice) -> &[u8] {
