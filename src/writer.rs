@@ -1,14 +1,9 @@
-// This part is taken from tokio::io module and modified to accept BytesMut instead of &str
 use std::io;
 use std::mem;
 
-use futures::{Future, Poll};
-
-use futures::try_ready;
-
-use tokio::prelude::*;
-
 use bytes::BytesMut;
+use futures::{try_ready, Future, Poll};
+use tokio::prelude::*;
 
 pub struct WriteAll<A> {
   state: State<A>,

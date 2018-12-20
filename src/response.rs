@@ -65,7 +65,7 @@ impl Response {
        ",
       self.status_message,
       length,
-      // need to put date properly
+      // need to put date
     )
     .unwrap();
 
@@ -107,6 +107,7 @@ impl<'a> fmt::Write for FastWrite<'a> {
 impl fmt::Display for StatusMessage {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match *self {
+      // need to add all list of responses
       StatusMessage::OK => f.pad("200 OK"),
       StatusMessage::NOT_FOUND => f.pad("404 Not Found"),
       StatusMessage::Custom(c, ref s) => write!(f, "{} {}", c, s),

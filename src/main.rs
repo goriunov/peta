@@ -17,13 +17,15 @@ fn main() {
 
       let conn = HttpReader::new(reader)
         .fold(writer, |writer, req| {
-          // let mut rsp = Response::new();
           let path = req.path();
-          // println!(
-          //   "Body: {}, len: {}",
-          //   std::str::from_utf8(req.body()).unwrap(),
-          //   req.body().len()
-          // );
+
+          // for header in req.headers() {
+          //   println!(
+          //     "Header: {:?}: {:?}",
+          //     header.0,
+          //     std::str::from_utf8(header.1).unwrap()
+          //   );
+          // }
 
           let rsp = Response::new()
             .status(StatusMessage::NOT_FOUND)
@@ -34,40 +36,6 @@ fn main() {
             _ => delay(rsp),
           }
           .and_then(move |rsp| rsp.write(writer))
-
-          // rsp.write(writer)
-          // write(rsp, writer)
-
-          // println!("Path: {}", req.path());
-          // println!("Method: {}", req.method());
-
-          // Delay::new(when)
-          //   .map_err(|e| panic!("delay errored; err={:?}", e))
-          //   .and_then(move |_| rsp.write(writer))
-
-          // .map(move |_| {
-          //   println!("Has been completed");
-          //   // rsp.write(writer)
-          //   // .map_err(|e| panic!("delay errored; err={:?}", e))
-          //   // .map(|writer| writer)
-
-          //   // writer
-          // })
-
-          // .map(|resp| writer)
-          // .wait()
-
-          // rsp.write(writer)
-
-          // data
-          // delay(rsp, writer).map_err(|e| panic!("delay errored;"))
-          // not_found(rsp)
-          // match req.path() {
-          //   "/" => hello_world(rsp),
-          //   "/delay" => delay(rsp),
-          //   _ => not_found(rsp),
-          // }
-          // .and_then(move |res| res.write(writer))
         })
         .map_err(|e| println!("Error in http reading; err={:?}", e))
         .map(|_| ());
