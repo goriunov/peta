@@ -1,7 +1,5 @@
-use simple_http::prelude::*;
-use simple_http::{
-  reader::HttpReader, response::Response, response::StatusMessage, runtime, Server,
-};
+use peta::prelude::*;
+use peta::{reader::HttpReader, response::Response, response::StatusMessage, runtime, Server};
 
 // for timer example
 use std::time::{Duration, Instant};

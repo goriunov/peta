@@ -44,10 +44,10 @@ impl Request {
 
     Ok(
       Request {
-        method: method,
-        path: path,
-        version: version,
-        headers: headers,
+        path,
+        method,
+        version,
+        headers,
         data: buf.split_to(amt),
         body: buf.split_off(0),
       }

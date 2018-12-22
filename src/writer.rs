@@ -20,7 +20,7 @@ where
 {
   WriteAll {
     state: State::Writing {
-      a: a,
+      a,
       buf: res,
       pos: 0,
     },

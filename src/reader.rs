@@ -1,9 +1,8 @@
 use bytes::BytesMut;
 
+use futures::try_ready;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
-
-use futures::try_ready;
 
 use crate::request::Request;
 
