@@ -5,45 +5,58 @@ use peta::{prelude::*, runtime};
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
 
+use std::thread;
+
 fn main() {
   let addr = "0.0.0.0:3000";
 
-  let server = Server::new(&addr)
-    .map_err(|e| println!("failed to accept socket; error = {:?}", e))
-    .for_each(|socket| {
-      let (read, write) = socket.split();
+  // let mut threads = Vec::new();
 
-      let conn = Http::new(read)
-        .fold(write, |write, req| {
-          let path = req.path();
+  // for _ in 0..5 {
+  //   threads.push(thread::spawn(move || {
 
-          // Read headers
-          // for header in req.headers() {
-          //   println!(
-          //     "Header: {:?}: {:?}",
-          //     header.0,
-          //     std::str::from_utf8(header.1).unwrap()
-          //   );
-          // }
+      let server = Server::new(&addr)
+        .map_err(|e| println!("failed to accept socket; error = {:?}", e))
+        .for_each(|socket| {
+          let (read, write) = socket.split();
 
-          let rsp = Response::new().header("Content-Type", "text/plain");
+          let conn = Http::new(read)
+            .fold(write, |write, req| {
+              let path = req.path();
 
-          match path {
-            "/" => hello_world(rsp),
-            "/delay" => delay(rsp),
-            _ => not_found(rsp),
-          }
-          .and_then(move |rsp| rsp.write(write))
-        })
-        .map_err(|e| println!("Error in http parsing; err={:?}", e))
-        .map(|_| ());
+              // Read headers
+              // for header in req.headers() {
+              //   println!(
+              //     "Header: {:?}: {:?}",
+              //     header.0,
+              //     std::str::from_utf8(header.1).unwrap()
+              //   );
+              // }
 
-      // spawn each connection
-      runtime::spawn(conn)
-    });
+              let rsp = Response::new().header("Content-Type", "text/plain");
 
-  println!("Server is listening on {}", addr);
-  runtime::run(server);
+              match path {
+                "/" => hello_world(rsp),
+                "/delay" => delay(rsp),
+                _ => not_found(rsp),
+              }
+              .and_then(move |rsp| rsp.write(write))
+            })
+            .map_err(|e| println!("Error in http parsing; err={:?}", e))
+            .map(|_| ());
+
+          // spawn each connection
+          runtime::spawn(conn)
+        });
+
+      println!("Server is listening on {}", addr);
+      runtime::run(server);
+    // }))
+  // }
+
+  // for thread in threads {
+  //   thread.join().unwrap();
+  // }
 }
 
 // hello world example

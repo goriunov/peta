@@ -10,11 +10,12 @@ pub mod response;
 pub mod status;
 pub mod writer;
 
-/// Expose tokio::prelude
+/// Reexports `tokio::prelude::*`
 pub mod prelude {
   pub use tokio::prelude::*;
 }
 
+/// Reexports crate components
 pub mod server {
   pub use crate::reader::Http;
   pub use crate::request::Request;
@@ -23,9 +24,9 @@ pub mod server {
   pub use crate::Server;
 }
 
-/// Expose `spawn` and `run` functions for tokio::runtime::current_thread
+/// Expose `spawn` and `run` functions for `tokio::runtime::current_thread`
 pub mod runtime {
-  /// Spawn future on tokio::runtime::current_thread
+  /// Spawn future on `tokio::runtime::current_thread`
   pub fn spawn<F>(future: F) -> Result<(), ()>
   where
     F: futures::Future<Item = (), Error = ()> + 'static,
@@ -34,7 +35,7 @@ pub mod runtime {
     Ok(())
   }
 
-  /// Run future on tokio::runtime::current_thread
+  /// Run future on `tokio::runtime::current_thread`
   pub fn run<F>(future: F)
   where
     F: futures::Future<Item = (), Error = ()> + 'static,
@@ -51,6 +52,7 @@ pub struct Server {
 }
 
 impl Server {
+  /// Create new server which is running on `addr`
   pub fn new(addr: &'static str) -> Server {
     let listener = {
       let builder = TcpBuilder::new_v4().unwrap();
@@ -77,9 +79,8 @@ impl Stream for Server {
         Ok(Async::NotReady) => {
           return Ok(Async::NotReady);
         }
-        Err(e) => {
-          println!("Got error {}", e);
-        }
+        // need to sort out error
+        Err(_) => {}
       }
     }
   }

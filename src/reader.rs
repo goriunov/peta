@@ -21,7 +21,7 @@ impl Http {
 
   fn read_buffer(&mut self) -> Poll<(), tokio::io::Error> {
     loop {
-      self.buffer.reserve(512); // improve reserve handler
+      self.buffer.reserve(512);
       let n = try_ready!(self.reader.read_buf(&mut self.buffer));
 
       if n == 0 {
