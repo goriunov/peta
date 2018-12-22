@@ -7,16 +7,25 @@ use tokio::prelude::*;
 pub mod reader;
 pub mod request;
 pub mod response;
+pub mod status;
 pub mod writer;
 
-// some prelude to use futures stream
+/// Expose tokio::prelude
 pub mod prelude {
   pub use tokio::prelude::*;
 }
 
-// simple current runtime spawn
+pub mod server {
+  pub use crate::reader::Http;
+  pub use crate::request::Request;
+  pub use crate::response::Response;
+  pub use crate::status::StatusMessage;
+  pub use crate::Server;
+}
+
+/// Expose `spawn` and `run` functions for tokio::runtime::current_thread
 pub mod runtime {
-  // pub use tokio::runtime::current_thread::spawn;
+  /// Spawn future on tokio::runtime::current_thread
   pub fn spawn<F>(future: F) -> Result<(), ()>
   where
     F: futures::Future<Item = (), Error = ()> + 'static,
@@ -25,6 +34,7 @@ pub mod runtime {
     Ok(())
   }
 
+  /// Run future on tokio::runtime::current_thread
   pub fn run<F>(future: F)
   where
     F: futures::Future<Item = (), Error = ()> + 'static,
@@ -35,19 +45,7 @@ pub mod runtime {
   }
 }
 
-///
-///
-///
-///
-///
-///
-///
-///
-///
-/// below things is not important part
-/// Can be used to scale between threads
-/// added reuse address
-
+// need to write proper description for the server
 pub struct Server {
   listener: TcpListener,
 }

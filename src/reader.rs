@@ -6,14 +6,14 @@ use tokio::prelude::*;
 
 use crate::request::Request;
 
-pub struct HttpReader {
+pub struct Http {
   reader: tokio::io::ReadHalf<TcpStream>,
   buffer: BytesMut,
 }
 
-impl HttpReader {
-  pub fn new(reader: tokio::io::ReadHalf<TcpStream>) -> HttpReader {
-    HttpReader {
+impl Http {
+  pub fn new(reader: tokio::io::ReadHalf<TcpStream>) -> Http {
+    Http {
       reader,
       buffer: BytesMut::new(),
     }
@@ -31,7 +31,7 @@ impl HttpReader {
   }
 }
 
-impl Stream for HttpReader {
+impl Stream for Http {
   type Item = Request;
   type Error = tokio::io::Error;
 

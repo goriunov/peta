@@ -1,22 +1,16 @@
+use crate::status::StatusMessage;
 use crate::writer;
 
-use bytes::{BufMut, BytesMut};
 use std::fmt::{self, Write};
+
 use tokio::net::TcpStream;
+
+use bytes::{BufMut, BytesMut};
 
 pub struct Response {
   headers: Vec<(String, String)>,
   response: Vec<u8>,
   status_message: StatusMessage,
-}
-
-pub enum StatusMessage {
-  // need to add all list of standard responses
-  OK,
-  NOT_FOUND,
-
-  // custom status implementation
-  Custom(u32, String),
 }
 
 impl Response {
@@ -100,15 +94,5 @@ impl<'a> fmt::Write for FastWrite<'a> {
 
   fn write_fmt(&mut self, args: fmt::Arguments) -> fmt::Result {
     fmt::write(self, args)
-  }
-}
-
-impl fmt::Display for StatusMessage {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match *self {
-      StatusMessage::OK => f.pad("200 OK"),
-      StatusMessage::NOT_FOUND => f.pad("404 Not Found"),
-      StatusMessage::Custom(c, ref s) => write!(f, "{} {}", c, s),
-    }
   }
 }

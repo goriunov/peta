@@ -1,5 +1,5 @@
-use peta::prelude::*;
-use peta::{reader::HttpReader, response::Response, response::StatusMessage, runtime, Server};
+use peta::server::{Http, Response, Server, StatusMessage};
+use peta::{prelude::*, runtime};
 
 // for timer example
 use std::time::{Duration, Instant};
@@ -11,12 +11,13 @@ fn main() {
   let server = Server::new(&addr)
     .map_err(|e| println!("failed to accept socket; error = {:?}", e))
     .for_each(|socket| {
-      let (reader, writer) = socket.split();
+      let (read, write) = socket.split();
 
-      let conn = HttpReader::new(reader)
-        .fold(writer, |writer, req| {
+      let conn = Http::new(read)
+        .fold(write, |write, req| {
           let path = req.path();
 
+          // Read headers
           // for header in req.headers() {
           //   println!(
           //     "Header: {:?}: {:?}",
@@ -25,17 +26,16 @@ fn main() {
           //   );
           // }
 
-          let rsp = Response::new()
-            .status(StatusMessage::NOT_FOUND)
-            .header("Content-Type", "text/plain");
+          let rsp = Response::new().header("Content-Type", "text/plain");
 
           match path {
             "/" => hello_world(rsp),
-            _ => delay(rsp),
+            "/delay" => delay(rsp),
+            _ => not_found(rsp),
           }
-          .and_then(move |rsp| rsp.write(writer))
+          .and_then(move |rsp| rsp.write(write))
         })
-        .map_err(|e| println!("Error in http reading; err={:?}", e))
+        .map_err(|e| println!("Error in http parsing; err={:?}", e))
         .map(|_| ());
 
       // spawn each connection
@@ -49,7 +49,6 @@ fn main() {
 pub fn hello_world(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
   // you can actually map all futures and return Ok result
   let hello = futures::future::ok(rsp.status(StatusMessage::OK).body("Hello world"));
-
   Box::new(hello)
 }
 
@@ -58,7 +57,7 @@ pub fn delay(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Erro
   let when = Instant::now() + Duration::from_millis(2000);
 
   let delay = Delay::new(when)
-    .map_err(|e| panic!("delay errored; err={:?}", e))
+    .map_err(|e| panic!("Delay errored; err={:?}", e))
     .and_then(move |_| {
       Ok(
         rsp
@@ -66,12 +65,10 @@ pub fn delay(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Erro
           .body("Got in delay page 2000ms"),
       )
     });
-
   Box::new(delay)
 }
 
-// pub fn not_found(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
-//   let at404 = futures::future::ok(rsp.status(status::NOT_FOUND).body("Could not find"));
-
-//   Box::new(at404)
-// }
+pub fn not_found(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
+  let at404 = futures::future::ok(rsp.status(StatusMessage::NOT_FOUND).body("Could not find"));
+  Box::new(at404)
+}
