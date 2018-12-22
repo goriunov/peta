@@ -46,14 +46,14 @@ fn main() {
   runtime::run(server);
 }
 
+// hello world example
 pub fn hello_world(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
-  // you can actually map all futures and return Ok result
   let hello = futures::future::ok(rsp.status(StatusMessage::OK).body("Hello world"));
   Box::new(hello)
 }
 
+// delay example
 pub fn delay(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
-  // delay example
   let when = Instant::now() + Duration::from_millis(2000);
 
   let delay = Delay::new(when)
@@ -68,6 +68,7 @@ pub fn delay(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Erro
   Box::new(delay)
 }
 
+// default not found response
 pub fn not_found(rsp: Response) -> Box<Future<Item = Response, Error = std::io::Error>> {
   let at404 = futures::future::ok(rsp.status(StatusMessage::NOT_FOUND).body("Could not find"));
   Box::new(at404)

@@ -1,5 +1,3 @@
-use std::fmt::{self, Write};
-
 // TODO: Need to add most common statuses
 pub enum StatusMessage {
   OK,
@@ -9,8 +7,8 @@ pub enum StatusMessage {
   Custom(u32, String),
 }
 
-impl fmt::Display for StatusMessage {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for StatusMessage {
+  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     match *self {
       StatusMessage::OK => f.pad("200 OK"),
       StatusMessage::NOT_FOUND => f.pad("404 Not Found"),
