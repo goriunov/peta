@@ -1,6 +1,5 @@
 #![deny(warnings)]
 extern crate hyper;
-// extern crate pretty_env_logger;
 
 use hyper::rt::{self, Future};
 use hyper::service::service_fn_ok;

@@ -18,4 +18,6 @@ futures = "0.1"
 bytes = "0.4"
 httparse = "1.3"
 net2 = "0.2"
+
+[dev-dependencies]
 hyper = "0.12"
