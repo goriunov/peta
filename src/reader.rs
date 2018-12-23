@@ -6,6 +6,7 @@ use tokio::prelude::*;
 
 use crate::request::Request;
 
+/// Read from `tokio::io::ReadHalf<TcpStream>` and stream ready http requests
 pub struct Http {
   reader: tokio::io::ReadHalf<TcpStream>,
   buffer: BytesMut,

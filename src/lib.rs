@@ -24,9 +24,10 @@ pub mod server {
   pub use crate::Server;
 }
 
-/// Expose `spawn` and `run` functions for `tokio::runtime::current_thread`
+/// Reexports `spawn` and `run` functions for `tokio::runtime::current_thread`
 pub mod runtime {
   /// Spawn future on `tokio::runtime::current_thread`
+  /// Slightly different from tokio's returns Result<(), ()>
   pub fn spawn<F>(future: F) -> Result<(), ()>
   where
     F: futures::Future<Item = (), Error = ()> + 'static,
