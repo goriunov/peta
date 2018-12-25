@@ -1,33 +1,37 @@
 #![deny(warnings)]
+extern crate futures;
 extern crate hyper;
+extern crate tokio;
 
-use hyper::rt::{self, Future};
+use hyper::rt::Future;
 use hyper::service::service_fn_ok;
-use hyper::{Body, Request, Response, Server};
-
-// use hyper::header::HeaderValue;
+use hyper::{Body, Response, Server};
+use tokio::runtime::current_thread;
 
 fn main() {
-  // pretty_env_logger::init();
   let addr = ([127, 0, 0, 1], 3001).into();
 
-  let server = Server::bind(&addr)
-    .serve(|| {
-      // This is the `Service` that will handle the connection.
-      // `service_fn_ok` is a helper to convert a function that
-      // returns a Response into a `Service`.
-      service_fn_ok(move |_: Request<Body>| {
-        let res = Response::new(Body::from("Hello World!"));
-        // res
-        //   .headers_mut()
-        // .insert("Connection", HeaderValue::from_static("close"));
+  // Using a !Send request counter is fine on 1 thread...
 
-        res
-      })
-    })
+  let new_service = move || {
+    // For each connection, clone the counter to use in our service...
+    service_fn_ok(move |_| Response::new(Body::from("Hello world")))
+  };
+
+  // Since the Server needs to spawn some background tasks, we needed
+  // to configure an Executor that can spawn !Send futures...
+  let exec = current_thread::TaskExecutor::current();
+
+  let server = Server::bind(&addr)
+    .executor(exec)
+    .serve(new_service)
     .map_err(|e| eprintln!("server error: {}", e));
 
   println!("Listening on http://{}", addr);
 
-  rt::run(server);
+  current_thread::Runtime::new()
+    .expect("rt new")
+    .spawn(server)
+    .run()
+    .expect("rt run");
 }

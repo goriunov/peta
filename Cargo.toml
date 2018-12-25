@@ -1,4 +1,5 @@
 # improve cargo structure
+# Do some perf checks nice video https://www.youtube.com/watch?v=qLKv4g1apB0
 [package]
 name = "peta"
 version = "0.0.3"
@@ -21,3 +22,6 @@ net2 = "0.2"
 
 [dev-dependencies]
 hyper = "0.12"
+
+[profile.release]
+debug = true

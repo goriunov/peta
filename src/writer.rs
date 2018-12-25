@@ -14,10 +14,7 @@ enum State<A> {
   Empty,
 }
 
-pub fn write_all<A>(a: A, res: BytesMut) -> WriteAll<A>
-where
-  A: AsyncWrite,
-{
+pub fn write_all<A: AsyncWrite>(a: A, res: BytesMut) -> WriteAll<A> {
   WriteAll {
     state: State::Writing {
       a,
@@ -27,18 +24,11 @@ where
   }
 }
 
-fn zero_write() -> io::Error {
-  io::Error::new(io::ErrorKind::WriteZero, "zero-length write")
-}
-
-impl<A> Future for WriteAll<A>
-where
-  A: AsyncWrite,
-{
-  type Item = (A);
+impl<A: AsyncWrite> Future for WriteAll<A> {
+  type Item = A;
   type Error = io::Error;
 
-  fn poll(&mut self) -> Poll<(A), io::Error> {
+  fn poll(&mut self) -> Poll<A, io::Error> {
     match self.state {
       State::Writing {
         ref mut a,
@@ -49,7 +39,10 @@ where
           let n = try_ready!(a.poll_write(&buf[*pos..]));
           *pos += n;
           if n == 0 {
-            return Err(zero_write());
+            return Err(io::Error::new(
+              io::ErrorKind::WriteZero,
+              "zero-length write",
+            ));
           }
         }
       }

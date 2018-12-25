@@ -1,58 +1,62 @@
-use bytes::BytesMut;
+use std::io;
 
 use futures::try_ready;
-use tokio::net::TcpStream;
+
+use bytes::{BufMut, BytesMut};
 use tokio::prelude::*;
 
-use crate::request::Request;
+use super::request;
 
-/// Read from `tokio::io::ReadHalf<TcpStream>` and stream ready http requests
-pub struct Http {
-  reader: tokio::io::ReadHalf<TcpStream>,
+pub struct HttpReader<S> {
+  socket: S,
+  closed: bool,
   buffer: BytesMut,
 }
 
-impl Http {
-  pub fn new(reader: tokio::io::ReadHalf<TcpStream>) -> Http {
-    Http {
-      reader,
-      buffer: BytesMut::new(),
-    }
-  }
-
-  fn read_buffer(&mut self) -> Poll<(), tokio::io::Error> {
-    loop {
-      self.buffer.reserve(512);
-      let n = try_ready!(self.reader.read_buf(&mut self.buffer));
-
-      if n == 0 {
-        return Ok(Async::Ready(()));
-      }
+impl<S: AsyncRead> HttpReader<S> {
+  pub fn new(socket: S) -> HttpReader<S> {
+    HttpReader {
+      socket,
+      closed: false,
+      buffer: BytesMut::with_capacity(1024),
     }
   }
 }
 
-impl Stream for Http {
-  type Item = Request;
-  type Error = tokio::io::Error;
+impl<S: AsyncRead> Stream for HttpReader<S> {
+  type Item = request::Request;
+  type Error = io::Error;
 
   fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-    let is_closed = self.read_buffer()?.is_ready();
+    // TODO: Add truncate for buffer
+    loop {
+      // only if socket is closed complete connection
+      if self.closed {
+        return Ok(Async::Ready(None));
+      }
 
-    if is_closed {
-      return Ok(Async::Ready(None));
-    }
+      // reserve more space only if there is no available space
+      if self.buffer.has_remaining_mut() {
+        self.buffer.reserve(1024);
+      }
 
-    if !self.buffer.is_empty() {
-      match Request::decode(&mut self.buffer).expect("Could not create request") {
-        Some(req) => {
-          self.buffer.clear();
-          return Ok(Async::Ready(Some(req)));
+      // consider read in separate loop and then parse
+      let n = try_ready!(self.socket.read_buf(&mut self.buffer));
+
+      // set socket to close
+      if n == 0 {
+        self.closed = true;
+      }
+
+      if !self.buffer.is_empty() {
+        match request::Request::parse(&mut self.buffer) {
+          // should we loop again in this place ?
+          Ok(Some(req)) => return Ok(Async::Ready(Some(req))),
+          // if was not able to parse try to get data again
+          Ok(None) => continue,
+          Err(e) => return Err(e),
         }
-        None => {}
-      };
+      }
     }
-
-    Ok(Async::NotReady)
   }
 }
