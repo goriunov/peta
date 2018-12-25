@@ -57,7 +57,7 @@ impl Response {
 
     // add content length and server
     let mut content_headers = String::with_capacity(50);
-    content_headers.push_str("server: Ultra\r\ncontent-length: ");
+    content_headers.push_str("Server: Peta\r\nContent-Length: ");
     content_headers.push_str(&self.body.len().to_string());
 
     // println!("{}", content_headers);

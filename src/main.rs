@@ -3,6 +3,16 @@ use peta;
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 
+// Test json response
+use serde::{Deserialize, Serialize};
+use serde_json;
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Person {
+  name: String,
+  last_name: String,
+}
+
 fn main() {
   let mut runtime = tokio::runtime::current_thread::Runtime::new().unwrap();
   let addr = "127.0.0.1:3000".parse().unwrap();
@@ -20,7 +30,15 @@ fn main() {
         .fold(write, |write, req| {
           let mut res = peta::response::Response::new();
           res.status("200 OK");
-          res.body_str("Hello world!");
+          // res.body_str("Hello world!");
+
+          let user = Person {
+            name: "Dmitrii".to_string(),
+            last_name: "Hello".to_string(),
+          };
+
+          let json = serde_json::to_vec(&user).unwrap();
+          res.body_vec(json);
 
           // println!("Is working");
 
@@ -28,20 +46,17 @@ fn main() {
           // let status = "Hello world";
 
           // let body = req.body();
-          // let version = req.version();
-
-          // println!("{:?}", body);
-          // write data to the socket
-          // tokio::io::write_all(write, "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
-          //   .map_err(|e| println!("{}", e))
-          //   .map(|(w, _)| w)
+          // let version = req.version()
         })
         .map(|_| ());
 
-      tokio::runtime::current_thread::spawn(reader);
+      // tokio::runtime::current_thread::spawn(reader);
+      tokio::spawn(reader);
       Ok(())
     });
 
-  runtime.spawn(server);
-  runtime.run();
+  // runtime.spawn(server);
+  // runtime.run();
+
+  tokio::run(server);
 }
