@@ -2,7 +2,7 @@ use std::io;
 use std::mem;
 
 use bytes::BytesMut;
-use futures::{try_ready, Future, Poll};
+use futures::try_ready;
 use tokio::prelude::*;
 
 pub struct WriteAll<A> {

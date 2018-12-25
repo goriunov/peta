@@ -18,10 +18,10 @@ fn main() {
       let reader = peta::reader::HttpReader::new(read)
         .map_err(|e| println!("Error is: {}", e))
         .fold(write, |write, req| {
-          let body = req.body();
-          let version = req.version();
+          // let body = req.body();
+          // let version = req.version();
 
-          println!("{:?}", body);
+          // println!("{:?}", body);
           // write data to the socket
           tokio::io::write_all(write, "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
             .map_err(|e| println!("{}", e))

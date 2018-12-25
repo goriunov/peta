@@ -7,16 +7,17 @@ type Slice = (usize, usize);
 
 // need to add headers
 pub struct Request {
-  data: BytesMut,
   body: Slice,
   path: Slice,
   method: Slice,
+  data: BytesMut,
   version: u8,
 }
 
 impl Request {
   pub fn parse(buffer: &mut BytesMut) -> Result<Option<Request>, io::Error> {
-    let mut headers = [httparse::EMPTY_HEADER; 16];
+    // we need to handle headers array properly
+    let mut headers = [httparse::EMPTY_HEADER; 50];
     let mut r = httparse::Request::new(&mut headers);
 
     let status = r.parse(buffer).map_err(|e| {
