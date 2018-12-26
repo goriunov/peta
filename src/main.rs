@@ -34,23 +34,7 @@ fn main() {
 
       let reader = peta::reader::HttpReader::new(read)
         .map_err(|e| println!("Error is: {}", e))
-        .fold(write, |write, req| {
-          let mut res = peta::response::Response::new();
-          res.status(peta::status::OK);
-          res.body_str("Hello world!");
-
-          // let user = Person {
-          //   name: "Dmitrii".to_string(),
-          //   last_name: "Hello".to_string(),
-          // };
-
-          // let json = serde_json::to_vec(&user).unwrap();
-          // res.body_vec(json);
-
-          // println!("Is working");
-
-          res.write(write).map_err(|e| println!("{}", e))
-        })
+        .fold(write, process)
         .map(|_| ());
 
       tokio::runtime::current_thread::spawn(reader);
@@ -62,4 +46,25 @@ fn main() {
   runtime.run();
 
   // tokio::run(server);
+}
+
+fn process<'a, S: AsyncWrite + 'a>(
+  write: S,
+  req: peta::request::Request,
+) -> Box<Future<Item = S, Error = ()> + 'a> {
+  let mut res = peta::response::Response::new();
+  res.status(peta::status::OK);
+  res.body_str("Hello world!");
+
+  // let user = Person {
+  //   name: "Dmitrii".to_string(),
+  //   last_name: "Hello".to_string(),
+  // };
+
+  // let json = serde_json::to_vec(&user).unwrap();
+  // res.body_vec(json);
+
+  // println!("Is working");
+
+  Box::new(res.write(write).map_err(|e| println!("Error: {}", e)))
 }

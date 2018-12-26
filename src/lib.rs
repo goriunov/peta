@@ -1,5 +1,5 @@
 // private
-mod writer;
+pub mod writer;
 
 // public
 pub mod reader;
