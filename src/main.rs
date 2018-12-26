@@ -29,24 +29,20 @@ fn main() {
         .map_err(|e| println!("Error is: {}", e))
         .fold(write, |write, req| {
           let mut res = peta::response::Response::new();
-          res.status("200 OK");
-          // res.body_str("Hello world!");
+          res.status(peta::status::OK);
+          res.body_str("Hello world!");
 
-          let user = Person {
-            name: "Dmitrii".to_string(),
-            last_name: "Hello".to_string(),
-          };
+          // let user = Person {
+          //   name: "Dmitrii".to_string(),
+          //   last_name: "Hello".to_string(),
+          // };
 
-          let json = serde_json::to_vec(&user).unwrap();
-          res.body_vec(json);
+          // let json = serde_json::to_vec(&user).unwrap();
+          // res.body_vec(json);
 
           // println!("Is working");
 
           res.write(write).map_err(|e| println!("{}", e))
-          // let status = "Hello world";
-
-          // let body = req.body();
-          // let version = req.version()
         })
         .map(|_| ());
 

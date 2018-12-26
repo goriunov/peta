@@ -18,7 +18,6 @@ impl Response {
     }
   }
 
-  // add enum with most common statuses
   pub fn status(&mut self, status: &str) {
     self.status.push_str("HTTP/1.1 ");
     self.status.push_str(status);
@@ -60,14 +59,14 @@ impl Response {
 
     match &self.body {
       Some(body) => {
-        content_headers.push_str("Server: Peta\r\nContent-Length: ");
+        content_headers.push_str("Content-Length: ");
         content_headers.push_str(&body.len().to_string());
         push(&mut buf, content_headers.as_bytes());
         push(&mut buf, b"\r\n\r\n");
         push(&mut buf, body.as_slice());
       }
       None => {
-        content_headers.push_str("Server: Peta\r\nContent-Length: 0");
+        content_headers.push_str("Content-Length: 0");
         push(&mut buf, content_headers.as_bytes());
         push(&mut buf, b"\r\n\r\n");
       }
