@@ -19,6 +19,13 @@ fn main() {
 
   let listener = TcpListener::bind(&addr).expect("unable to bind TCP listener");
 
+  // create router
+  // let router = Router::new()
+  //     .get("/", fn_get_1)
+  //     .post("/post/*", fn_post)
+  //     .get("/another", fn_get_2)
+  //     .add("*", not_found)
+
   let server = listener
     .incoming()
     .map_err(|e| eprintln!("accept failed = {:?}", e))
