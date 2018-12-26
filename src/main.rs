@@ -50,13 +50,13 @@ fn main() {
         })
         .map(|_| ());
 
-      // tokio::runtime::current_thread::spawn(reader);
-      tokio::spawn(reader);
+      tokio::runtime::current_thread::spawn(reader);
+      // tokio::spawn(reader);
       Ok(())
     });
 
-  // runtime.spawn(server);
-  // runtime.run();
+  runtime.spawn(server);
+  runtime.run();
 
-  tokio::run(server);
+  // tokio::run(server);
 }

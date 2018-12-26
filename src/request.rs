@@ -16,7 +16,7 @@ pub struct Request {
 
 impl Request {
   pub fn parse(buffer: &mut BytesMut) -> Result<Option<Request>, io::Error> {
-    // we need to handle headers array properly
+    // we need to handle headers properly currently default 50
     let mut headers = [httparse::EMPTY_HEADER; 50];
     let mut r = httparse::Request::new(&mut headers);
 

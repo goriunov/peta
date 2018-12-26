@@ -4,7 +4,7 @@ use bytes::{BufMut, BytesMut};
 use tokio::prelude::*;
 
 pub struct Response {
-  body: Vec<u8>,
+  body: Option<Vec<u8>>,
   status: String,
   headers: Vec<String>,
 }
@@ -12,7 +12,7 @@ pub struct Response {
 impl Response {
   pub fn new() -> Response {
     Response {
-      body: Vec::new(),
+      body: None,
       status: String::with_capacity(100),
       headers: Vec::with_capacity(50),
     }
@@ -36,11 +36,11 @@ impl Response {
   }
 
   pub fn body_vec(&mut self, body: Vec<u8>) {
-    self.body = body;
+    self.body = Some(body);
   }
 
   pub fn body_str(&mut self, body: &str) {
-    self.body = body.as_bytes().to_vec();
+    self.body = Some(body.as_bytes().to_vec());
   }
 
   // we should not pass buff in here
@@ -55,20 +55,23 @@ impl Response {
       push(&mut buf, val.as_bytes());
     }
 
-    // add content length and server
+    // add content length and
     let mut content_headers = String::with_capacity(50);
-    content_headers.push_str("Server: Peta\r\nContent-Length: ");
-    content_headers.push_str(&self.body.len().to_string());
 
-    // println!("{}", content_headers);
-
-    push(&mut buf, content_headers.as_bytes());
-
-    // add additional line
-    push(&mut buf, b"\r\n\r\n");
-    push(&mut buf, self.body.as_slice());
-
-    // println!("{}", std::str::from_utf8(&buf).unwrap());
+    match &self.body {
+      Some(body) => {
+        content_headers.push_str("Server: Peta\r\nContent-Length: ");
+        content_headers.push_str(&body.len().to_string());
+        push(&mut buf, content_headers.as_bytes());
+        push(&mut buf, b"\r\n\r\n");
+        push(&mut buf, body.as_slice());
+      }
+      None => {
+        content_headers.push_str("Server: Peta\r\nContent-Length: 0");
+        push(&mut buf, content_headers.as_bytes());
+        push(&mut buf, b"\r\n\r\n");
+      }
+    }
 
     writer::write_all(writer, buf)
   }
