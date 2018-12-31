@@ -28,7 +28,7 @@ impl<S: AsyncRead> Stream for HttpReader<S> {
   type Error = io::Error;
 
   fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-    // TODO: Add truncate for buffer
+    // TODO: Add truncate for buffer. Do we actually need that ?
     loop {
       // only if socket is closed complete connection
       if self.closed {
