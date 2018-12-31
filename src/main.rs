@@ -24,32 +24,28 @@ fn main() {
 
   let listener = TcpListener::bind(&addr).expect("unable to bind TCP listener");
 
-  let mut router = peta::router::Router::new();
+  let router = peta::router::Router::new()
+    .get(move |req| {
+      // example with using delay future
+      let when = Instant::now() + Duration::from_millis(2000);
 
-  router.get(move |req| {
-    // example with using delay future
-    let when = Instant::now() + Duration::from_millis(2000);
+      let delay = Delay::new(when)
+        .map_err(|e| panic!("Delay errored; err={:?}", e))
+        .and_then(move |_| {
+          let mut res = peta::response::Response::new();
+          res.status(peta::status::OK);
+          res.body_str("Hello world!");
+          Ok(res)
+        });
 
-    let delay = Delay::new(when)
-      .map_err(|e| panic!("Delay errored; err={:?}", e))
-      .and_then(move |_| {
-        let mut res = peta::response::Response::new();
-        res.status(peta::status::OK);
-        res.body_str("Hello world!");
-        Ok(res)
-      });
+      Box::new(delay)
+      // let mut res = peta::response::Response::new();
+      // res.status(peta::status::OK);
+      // res.body_str("Hello world!");
 
-    Box::new(delay)
-    // let mut res = peta::response::Response::new();
-    // res.status(peta::status::OK);
-    // res.body_str("Hello world!");
-
-    // Box::new(futures::future::ok(res))
-  });
-
-  // router.get()
-  // hide ark somewhere to make it nicer
-  let router = Arc::new(router);
+      // Box::new(futures::future::ok(res))
+    })
+    .build();
 
   let server = listener
     .incoming()
@@ -57,7 +53,7 @@ fn main() {
     .for_each(move |sock| {
       let (read, write) = sock.split();
 
-      let router = Arc::clone(&router);
+      let router = router.clone();
       // need to write boxed future
       let reader = peta::reader::HttpReader::new(read)
         .map_err(|e| println!("Error is: {}", e))
@@ -68,16 +64,33 @@ fn main() {
         })
         .map(|_| ());
 
-      tokio::runtime::current_thread::spawn(reader);
-      // tokio::spawn(reader);
+      // tokio::runtime::current_thread::spawn(reader);
+      tokio::spawn(reader);
       Ok(())
     });
 
-  runtime.spawn(server);
-  runtime.run();
+  // runtime.spawn(server);
+  // runtime.run();
 
-  // tokio::run(server);
+  tokio::run(server);
 }
+
+// fn on_delay(
+//   res: peta::request::Request,
+// ) -> Box<Future<Item = peta::response::Response, Error = ()> + Send + Sync> {
+//   let when = Instant::now() + Duration::from_millis(2000);
+
+//   let delay = Delay::new(when)
+//     .map_err(|e| panic!("Delay errored; err={:?}", e))
+//     .and_then(move |_| {
+//       let mut res = peta::response::Response::new();
+//       res.status(peta::status::OK);
+//       res.body_str("Hello world!");
+//       Ok(res)
+//     });
+
+//   Box::new(delay)
+// }
 
 // fn process<'a, S: AsyncWrite + 'a>(
 //   write: S,

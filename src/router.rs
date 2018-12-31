@@ -8,126 +8,45 @@ use tokio::prelude::*;
 
 use std::sync::Arc;
 
-pub struct Node {
-  path: String,
-  children: Option<hashbrown::HashMap<String, Node>>,
-}
-
-type Func = Box<
+type StoreFunc = Box<
   dyn Fn(request::Request) -> Box<dyn Future<Item = response::Response, Error = ()> + Send + Sync>
     + Send
     + Sync,
 >;
 
+pub struct Node {
+  path: String,
+  children: Option<hashbrown::HashMap<String, Node>>,
+}
+
 pub struct Router {
-  pub func: Option<Func>,
+  pub maps: Node,
+  pub func: Option<StoreFunc>,
 }
 
 impl<'a> Router {
   pub fn new() -> Router {
-    Router { func: None }
+    Router {
+      maps: Node {
+        path: String::from("MYPATH"),
+        children: None,
+      },
+      func: None,
+    }
   }
 
-  pub fn get<T>(&mut self, func: T)
+  pub fn get<F>(mut self, func: F) -> Router
   where
-    T: Fn(request::Request) -> Box<Future<Item = response::Response, Error = ()> + Send + Sync>
+    F: Fn(request::Request) -> Box<Future<Item = response::Response, Error = ()> + Send + Sync>
       + Send
       + Sync
       + 'static,
   {
     self.func = Some(Box::new(func));
+    self
   }
 
-  // pub fn prepare_run(
-  //   &mut self,
-  //   writer: tokio::io::WriteHalf<tokio::net::TcpStream>,
-  //   item: reader::HttpReader<tokio::io::ReadHalf<tokio::net::TcpStream>>,
-  // ) -> impl Future<Item = (), Error = ()> {
-  //   // Box::new(
-  //   let fut = item
-  //     .map_err(|e| println!("Error is: {}", e))
-  //     .fold(writer, |writer, b| {
-  //       (self.func)(b).and_then(|res| res.write(writer).map_err(|e| println!("Error: {}", e)))
-  //     })
-  //     .map(|_| ());
-
-  //   // tokio::spawn(fut);
-  //   fut
-  //   // )
-  // }
-
-  // pub fn call(
-  //   &mut self,
-  //   a: tokio::io::WriteHalf<tokio::net::TcpStream>,
-  //   b: request::Request,
-  // ) -> Box<Future<Item = tokio::io::WriteHalf<tokio::net::TcpStream>, Error = ()> + Send + 'static>
-  // {
-  //   (self.func)(a, b)
-  // }
+  pub fn build(self) -> Arc<Self> {
+    Arc::new(self)
+  }
 }
-
-// type Func = Box<dyn FnMut(TcpStream) -> Box<Future<Item = TcpStream, Error = ()>>>;
-
-// pub struct A {
-//   func: Func,
-// }
-
-// impl A {
-//   pub fn new(func: Func) -> A {
-//     A { func }
-//   }
-// }
-
-// pub struct Router <F, T> where{
-//   fn: F
-// }
-
-// clean up useless impl
-// pub struct Router<
-//   T: Fn(
-//     tokio::io::WriteHalf<tokio::net::TcpStream>,
-//     request::Request,
-//   ) -> Box<Future<Item = tokio::io::WriteHalf<tokio::net::TcpStream>, Error = ()>>,
-// > {
-//   cb: T,
-// }
-
-// pub fn my_fn<T, F>(f: F)
-// where
-//   F: FnMut(
-//     T,
-//     request::Request,
-//   ) -> Box<Future<Item = tokio::io::WriteHalf<tokio::net::TcpStream>, Error = ()>>,
-// {
-
-// }
-
-// impl<T> Router<T>
-// where
-//   T: Fn(
-//     tokio::io::WriteHalf<tokio::net::TcpStream>,
-//     request::Request,
-//   ) -> Box<Future<Item = tokio::io::WriteHalf<tokio::net::TcpStream>, Error = ()>>,
-// {
-//   pub fn new(path: &str, cb: T) -> Router<T> {
-//     Router { cb }
-//   }
-
-//   pub fn call(
-//     self,
-//     a: tokio::io::WriteHalf<tokio::net::TcpStream>,
-//     b: request::Request,
-//   ) -> Box<Future<Item = tokio::io::WriteHalf<tokio::net::TcpStream>, Error = ()>> {
-//     self.call(a, b)
-//   }
-
-// pub fn add(&self, path: &str, cb: T)
-// where
-//   T: FnMut(
-//     tokio::io::WriteHalf<tokio::net::TcpStream>,
-//     request::Request,
-//   ) -> Box<Future<Item = tokio::io::WriteHalf<tokio::net::TcpStream>, Error = ()>>,
-// {
-
-// }
-// }
