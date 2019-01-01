@@ -2,13 +2,15 @@
 use std::io;
 
 use bytes::BytesMut;
+use http::Uri;
 
 type Slice = (usize, usize);
 
 // need to add headers
 pub struct Request {
+  uri: Uri,
   body: Slice,
-  path: Slice,
+  // path: Slice,
   method: Slice,
   data: BytesMut,
   version: u8,
@@ -36,9 +38,21 @@ impl Request {
       (start, start + a.len())
     };
 
+    // r.uri()
+
+    // letr.path
+    //
+    //
+    // we need to have thing here
+
+    // let uri = "/foo/bar?baz".parse::<Uri>().unwrap();
+    // assert_eq!(uri.path(), "/foo/bar");
+    // assert_eq!(uri.query(), Some("baz"));
+    // assert_eq!(uri.host(), None);
+
     Ok(Some(Request {
-      path: to_slice(r.method.unwrap().as_bytes()),
-      method: to_slice(r.path.unwrap().as_bytes()),
+      uri: r.path.unwrap().parse::<Uri>().unwrap(),
+      method: to_slice(r.method.unwrap().as_bytes()),
       version: r.version.unwrap(),
       body: (amt, buffer.len()),
       // move buff
@@ -46,8 +60,9 @@ impl Request {
     }))
   }
 
-  pub fn path(&self) -> &str {
-    std::str::from_utf8(self.slice(&self.path)).unwrap()
+  pub fn uri(&self) -> &Uri {
+    &self.uri
+    // std::str::from_utf8(self.slice(&self.path)).unwrap()
   }
 
   pub fn method(&self) -> &str {

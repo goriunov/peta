@@ -15,27 +15,132 @@ type StoreFunc = Box<
 >;
 
 pub struct Node {
-  path: String,
+  method: Option<StoreFunc>,
   children: Option<hashbrown::HashMap<String, Node>>,
 }
 
+impl std::fmt::Debug for Node {
+  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    write!(f, "Node {{children: {:#?} }}", self.children)
+  }
+}
+
+#[derive(Debug)]
 pub struct Router {
-  pub maps: Node,
+  routes: Option<Node>,
+}
+
+impl Router {
+  pub fn new() -> Router {
+    Router { routes: None }
+  }
+
+  pub fn add<F>(&mut self, path: String, func: F)
+  where
+    F: Fn(request::Request) -> Box<Future<Item = response::Response, Error = ()> + Send + Sync>
+      + Send
+      + Sync
+      + 'static,
+  {
+    match &self.routes {
+      Some(node) => {}
+      None => {
+        self.routes = Some(Node {
+          method: None,
+          children: None,
+        });
+      }
+    }
+
+    let mut node = self.routes.as_mut().unwrap();
+    // let mut node: Option<Node> = None;
+
+    for item in path.split('/') {
+      if item.len() > 0 {
+        Router::recur_add(node, String::from(item));
+        node = node.children.as_mut().unwrap().get_mut(item).unwrap();
+      }
+    }
+
+    Router::set_fn(node, func);
+
+    println!("{:#?}", self);
+
+    // println!("{}", item);
+  }
+
+  fn set_fn<F>(node: &mut Node, func: F)
+  where
+    F: Fn(request::Request) -> Box<Future<Item = response::Response, Error = ()> + Send + Sync>
+      + Send
+      + Sync
+      + 'static,
+  {
+    node.method = Some(Box::new(func));
+  }
+
+  // can be optimized
+  fn recur_add(node: &mut Node, path: String) {
+    match &mut node.children {
+      Some(children) => match children.get(path.as_str()) {
+        Some(_) => {}
+        None => {
+          children.insert(
+            path,
+            Node {
+              method: None,
+              children: None,
+            },
+          );
+        }
+      },
+      None => {
+        let mut hash = hashbrown::HashMap::new();
+        hash.insert(
+          path,
+          Node {
+            method: None,
+            children: None,
+          },
+        );
+
+        node.children = Some(hash);
+      }
+    }
+  }
+}
+
+///
+///
+///
+///
+///
+///
+/// IGNORE OLD IMPLEMNTATION
+///
+///
+///
+///
+///
+///
+// Old router implementation
+pub struct Router2 {
+  // pub maps: Node,
   pub func: Option<StoreFunc>,
 }
 
-impl<'a> Router {
-  pub fn new() -> Router {
-    Router {
-      maps: Node {
-        path: String::from("MYPATH"),
-        children: None,
-      },
+impl<'a> Router2 {
+  pub fn new() -> Router2 {
+    Router2 {
+      // maps: Node {
+      //   path: String::from("MYPATH"),
+      //   children: None,
+      // },
       func: None,
     }
   }
 
-  pub fn get<F>(mut self, func: F) -> Router
+  pub fn get<F>(mut self, func: F) -> Router2
   where
     F: Fn(request::Request) -> Box<Future<Item = response::Response, Error = ()> + Send + Sync>
       + Send
