@@ -25,7 +25,8 @@ fn main() {
   let listener = TcpListener::bind(&addr).expect("unable to bind TCP listener");
 
   let mut router = peta::router::Router::new();
-  router.add(String::from("/hello/resp"), move |req| {
+
+  router.add(String::from("/home"), move |req| {
     // println!("Query {}", req.uri().query().unwrap_or("None"));
     // println!("Path {}", req.method());
     let mut res = peta::response::Response::new();
@@ -35,7 +36,7 @@ fn main() {
     Box::new(futures::future::ok(res))
   });
 
-  router.add(String::from("/hello/delay"), move |req| {
+  router.add(String::from("/delay"), move |req| {
     let when = Instant::now() + Duration::from_millis(2000);
 
     let delay = Delay::new(when)
@@ -49,7 +50,8 @@ fn main() {
 
     Box::new(delay)
   });
-  // .build();
+  // build router
+  let router = router.build();
 
   let server = listener
     .incoming()
@@ -57,18 +59,31 @@ fn main() {
     .for_each(move |sock| {
       let (read, write) = sock.split();
 
-      // let router = router.clone();
+      // get arc pointer
+      let router = router.clone();
       // need to write boxed future
       let reader = peta::reader::HttpReader::new(read)
         .map_err(|e| println!("Error is: {}", e))
         .fold(write, move |writer, req| {
-          // make this desing nicer
+          // let mut res = peta::response::Response::new();
+          // res.status(peta::status::OK);
+          // res.body_str(req.uri().path());
 
-          let mut res = peta::response::Response::new();
-          res.status(peta::status::OK);
-          res.body_str(req.uri().path());
+          match router.find(req.uri().path()) {
+            Some(func) => (func)(req),
+            None => {
+              (router.find("/home").unwrap())(req)
 
-          res.write(writer).map_err(|e| println!("Error: {}", e))
+              // let mut res = peta::response::Response::new();
+              // res.status(peta::status::OK);
+              // res.body_str(req.uri().path());
+              // Box::new(futures::future::ok(res))
+              //   .and_then(|res| res.write(writer).map_err(|e| println!("Error: {}", e)))
+            }
+          }
+          .and_then(|rsp| rsp.write(writer).map_err(|e| println!("Error: {}", e)))
+
+          // res.write(writer).map_err(|e| println!("Error: {}", e))
           // (router.func.as_ref().unwrap())(req)
           //   .and_then(|rsp| rsp.write(writer).map_err(|e| println!("Error: {}", e)))
         })
@@ -80,7 +95,7 @@ fn main() {
     });
 
   runtime.spawn(server);
-  runtime.run();
+  runtime.run().unwrap();
 
   // tokio::run(server);
 }

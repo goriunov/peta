@@ -21,7 +21,7 @@ pub struct Node {
 
 impl std::fmt::Debug for Node {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-    write!(f, "Node {{children: {:#?} }}", self.children)
+    write!(f, "Node {{ \n children: {:#?} \n}}", self.children)
   }
 }
 
@@ -33,6 +33,32 @@ pub struct Router {
 impl Router {
   pub fn new() -> Router {
     Router { routes: None }
+  }
+
+  pub fn build(self) -> Arc<Self> {
+    Arc::new(self)
+  }
+
+  pub fn find(&self, path: &str) -> Option<&StoreFunc> {
+    let mut node = self.routes.as_ref().unwrap();
+    for item in path.split('/') {
+      match &node.children {
+        Some(found) => match found.get(&String::from(item)) {
+          Some(exist) => {
+            node = exist;
+          }
+          None => {}
+        },
+        None => {}
+      }
+    }
+
+    // match node.method {
+    //   Some(f) => f.as_ref(),
+    //   None
+    // }
+
+    node.method.as_ref()
   }
 
   pub fn add<F>(&mut self, path: String, func: F)
@@ -57,7 +83,7 @@ impl Router {
 
     for item in path.split('/') {
       if item.len() > 0 {
-        Router::recur_add(node, String::from(item));
+        Router::loop_add(node, String::from(item));
         node = node.children.as_mut().unwrap().get_mut(item).unwrap();
       }
     }
@@ -65,8 +91,6 @@ impl Router {
     Router::set_fn(node, func);
 
     println!("{:#?}", self);
-
-    // println!("{}", item);
   }
 
   fn set_fn<F>(node: &mut Node, func: F)
@@ -80,7 +104,7 @@ impl Router {
   }
 
   // can be optimized
-  fn recur_add(node: &mut Node, path: String) {
+  fn loop_add(node: &mut Node, path: String) {
     match &mut node.children {
       Some(children) => match children.get(path.as_str()) {
         Some(_) => {}
