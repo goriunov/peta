@@ -7,7 +7,7 @@ use tokio::prelude::*;
 pub struct Response {
   body: Option<Vec<u8>>,
   status: Option<&'static str>,
-  headers: Vec<(String, String)>,
+  headers: Vec<(&'static str, &'static str)>,
 }
 
 impl Response {
@@ -23,8 +23,8 @@ impl Response {
     self.status = Some(status);
   }
 
-  pub fn header(&mut self, name: &str, value: &str) {
-    self.headers.push((name.to_string(), value.to_string()));
+  pub fn header(&mut self, name: &'static str, value: &'static str) {
+    self.headers.push((name, value));
   }
 
   pub fn body_vec(&mut self, body: Vec<u8>) {
