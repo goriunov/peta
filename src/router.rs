@@ -21,6 +21,37 @@ pub struct Node {
   children: Option<hashbrown::HashMap<&'static str, Node>>,
 }
 
+impl Node {
+  pub fn set_func(&mut self, func: StoreFunc) {
+    self.method = Some(func);
+  }
+
+  pub fn add_child(&mut self, seg: &'static str, param: Option<&'static str>) -> &mut Node {
+    if self.children.is_none() {
+      self.children = Some(hashbrown::HashMap::new())
+    }
+
+    let node_map = self.children.as_mut().unwrap();
+
+    // if key exist then return existing node ref
+    if node_map.contains_key(seg) {
+      return node_map.get_mut(seg).unwrap();
+    }
+
+    // create new if node
+    node_map.insert(
+      seg,
+      Node {
+        param,
+        method: None,
+        children: None,
+      },
+    );
+
+    node_map.get_mut(seg).unwrap()
+  }
+}
+
 impl std::fmt::Debug for Node {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     write!(
@@ -33,14 +64,15 @@ impl std::fmt::Debug for Node {
   }
 }
 
-#[derive(Debug)]
 pub struct Router {
   routes: Node,
+  default: Option<StoreFunc>,
 }
 
 impl Router {
   pub fn new() -> Router {
     Router {
+      default: None,
       routes: Node {
         param: None,
         method: None,
@@ -59,6 +91,10 @@ impl Router {
     // and add additional router parsing things
     let mut node = &self.routes;
     let mut not_found: bool = false;
+
+    if req.uri().path() == "/" {
+      return (node.method.as_ref().unwrap())(req);
+    }
 
     // need to add capacity to do not relocate
     // how do we return
@@ -103,14 +139,14 @@ impl Router {
 
     // if route was not found then return
     if not_found {
-      return (self.routes.method.as_ref().unwrap())(req);
+      return (self.default.as_ref().unwrap())(req);
     }
 
     match node.method.as_ref() {
       Some(func) => (func)(req),
       None => {
         // if none then load 404 route
-        (self.routes.method.as_ref().unwrap())(req)
+        (self.default.as_ref().unwrap())(req)
       }
     }
   }
@@ -124,59 +160,31 @@ impl Router {
   {
     let mut node = &mut self.routes;
 
-    if path == "*" {
-      // if it is star then set default
-      return set_func(node, Box::new(func));
-    }
-
-    for item in path.split('/') {
-      if item.len() > 0 {
-        // check if route is param route
-        let mut path_chars = item.chars();
-
-        if path_chars.next() == Some(':') {
-          add_node(node, ":", Some(path_chars.as_str()));
-          node = node.children.as_mut().unwrap().get_mut(":").unwrap();
-        } else {
-          add_node(node, item, None);
-          node = node.children.as_mut().unwrap().get_mut(item).unwrap();
-        }
+    match path {
+      "*" => {
+        // default or 404 case we must have one for now :(
+        self.default = Some(Box::new(func));
       }
-    }
+      "/" => {
+        // handle / case
+        node.set_func(Box::new(func));
+      }
+      _ => {
+        // handle rest of the cases
+        for seg in path.split('/') {
+          if !seg.is_empty() {
+            let mut seg_arr = seg.chars();
+            // check if path is param
+            if seg_arr.next() == Some(':') {
+              node = node.add_child(":", Some(seg_arr.as_str()));
+              continue;
+            }
+            node = node.add_child(seg, None);
+          }
+        }
 
-    set_func(node, Box::new(func));
-  }
-}
-
-fn set_func(node: &mut Node, func: StoreFunc) {
-  node.method = Some(func);
-}
-
-fn add_node(node: &mut Node, path: &'static str, param: Option<&'static str>) {
-  // if no children exist then create new one
-  if node.children.is_none() {
-    let mut hash = hashbrown::HashMap::new();
-    hash.insert(
-      path,
-      Node {
-        param,
-        method: None,
-        children: None,
-      },
-    );
-    node.children = Some(hash);
-  } else {
-    // if we have children then reuse existing or add new
-    let children = node.children.as_mut().unwrap();
-    if children.get(path).is_none() {
-      children.insert(
-        path,
-        Node {
-          param,
-          method: None,
-          children: None,
-        },
-      );
+        node.set_func(Box::new(func));
+      }
     }
   }
 }

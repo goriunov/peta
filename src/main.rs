@@ -77,7 +77,7 @@ fn main() {
   router.add("*", not_found);
   router.add("/hello/:world", hello_world);
 
-  println!("{:#?}", router);
+  // println!("{:#?}", router);
   // will need to thing what is better
   let router = router.build();
 
