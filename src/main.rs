@@ -6,8 +6,6 @@ use peta::server::{method, status, HttpReader, Request, Response, ReturnFuture, 
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
 
-// use http::Uri;
-
 // Test json response
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -46,7 +44,7 @@ fn hello_world(req: Request) -> ReturnFuture {
   // println!("{:?}", req.params());
   let mut res = Response::new();
   res.status(status::OK);
-  res.body_str("Hello world");
+  res.body_str("Hello world!");
 
   Box::new(futures::future::ok(res))
 }
@@ -73,9 +71,12 @@ fn main() {
   router.add(method::GET, "/home", home);
   router.add(method::GET, "/delay", delay);
   router.add(method::GET, "/delay/*", home);
+
+  router.add(method::GET, "/hello/:world/", hello_world);
+
   // we must provide "*" route // as a default response
+  // for now this route sets to default response
   router.add(method::GET, "*", not_found);
-  router.add(method::GET, "/hello/:world", hello_world);
 
   println!("{:#?}", router);
   // will need to thing what is better

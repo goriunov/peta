@@ -94,71 +94,79 @@ impl Router {
     Arc::new(self)
   }
 
-  // rewrite and optimize find algorithm
-  // need to re implement find method
+  // sort out default route it does not look good
   pub fn find(&self, mut req: request::Request) -> ReturnFuture {
-    // !! we need to do a lot of optimization for search
-    // and add additional router parsing things
-    let mut node = &self.routes;
-    let mut not_found: bool = false;
+    let mut node = match req.method() {
+      method::GET => &self.get,
+      method::PUT => &self.put,
+      method::POST => &self.post,
+      method::HEAD => &self.head,
+      method::PATCH => &self.patch,
+      method::DELETE => &self.delete,
+      method::OPTIONS => &self.options,
+      _ => &self.routes,
+    };
 
-    // this thing does not work properly
+    // handle / route
     if req.uri().path() == "/" {
-      return (node.method.as_ref().unwrap())(req);
+      return match node.method.as_ref() {
+        Some(v) => (v)(req),
+        None => (self.default.as_ref().unwrap())(req),
+      };
     }
 
-    // need to add capacity to do not relocate
-    // how do we return
-    let mut params: Vec<(&'static str, String)> = Vec::new();
+    let mut params: Vec<(&'static str, String)> = Vec::with_capacity(10);
 
     for seg in req.uri().path().split('/') {
-      if seg.len() > 0 {
+      if !seg.is_empty() {
         if node.children.is_none() {
-          not_found = true;
-          break;
+          // do default return
+          return (self.default.as_ref().unwrap())(req);
         }
 
         let children = node.children.as_ref().unwrap();
 
-        let mut found_node = children.get(seg);
+        // find proper node with func
+        let found_node = match children.get(seg) {
+          Some(v) => v,
+          None => {
+            match children.get(":") {
+              Some(v) => {
+                params.push((v.param.unwrap(), seg.to_string()));
+                v
+              }
+              // break from this function if we get in star
+              None => match children.get("*") {
+                Some(v) => {
+                  // we need to attache params in here as we may and loop sooner
+                  if !params.is_empty() {
+                    req.set_params(Some(params));
+                  }
 
-        if found_node.is_none() {
-          // search for param first
-          found_node = children.get(":");
-
-          if found_node.is_none() {
-            // if we found at least star then load star route
-            found_node = children.get("*");
-
-            if found_node.is_some() {
-              node = found_node.unwrap();
-              break;
+                  return (v.method.as_ref().unwrap())(req);
+                }
+                None => {
+                  // execute default if route not found at all
+                  return (self.default.as_ref().unwrap())(req);
+                }
+              },
             }
-
-            not_found = true;
-            break;
           }
+        };
 
-          params.push((found_node.unwrap().param.unwrap(), seg.to_string()));
-        }
-
-        node = found_node.unwrap();
+        node = found_node;
       }
-    }
-
-    req.set_params(Some(params));
-
-    // if route was not found then return
-    if not_found {
-      return (self.default.as_ref().unwrap())(req);
     }
 
     match node.method.as_ref() {
-      Some(func) => (func)(req),
-      None => {
-        // if none then load 404 route
-        (self.default.as_ref().unwrap())(req)
+      Some(v) => {
+        // set params only if it is not empty
+        if !params.is_empty() {
+          req.set_params(Some(params));
+        }
+        (v)(req)
       }
+      None => (self.default.as_ref().unwrap())(req),
     }
   }
 

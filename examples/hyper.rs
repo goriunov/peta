@@ -6,7 +6,7 @@ extern crate tokio;
 use hyper::rt::Future;
 use hyper::service::service_fn_ok;
 use hyper::{Body, Response, Server};
-// use tokio::runtime::current_thread;
+use tokio::runtime::current_thread;
 
 fn main() {
   let addr = ([127, 0, 0, 1], 3001).into();
@@ -20,20 +20,20 @@ fn main() {
 
   // Since the Server needs to spawn some background tasks, we needed
   // to configure an Executor that can spawn !Send futures...
-  // let exec = current_thread::TaskExecutor::current();
+  let exec = current_thread::TaskExecutor::current();
 
   let server = Server::bind(&addr)
-    // .executor(exec)
+    .executor(exec)
     .serve(new_service)
     .map_err(|e| eprintln!("server error: {}", e));
 
   println!("Listening on http://{}", addr);
 
-  hyper::rt::run(server);
+  // hyper::rt::run(server);
 
-  // current_thread::Runtime::new()
-  //   .expect("rt new")
-  //   .spawn(server)
-  //   .run()
-  //   .expect("rt run");
+  current_thread::Runtime::new()
+    .expect("rt new")
+    .spawn(server)
+    .run()
+    .expect("rt run");
 }
