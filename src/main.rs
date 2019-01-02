@@ -42,6 +42,7 @@ fn delay(req: peta::request::Request) -> peta::router::ReturnFuture {
 }
 
 fn hello_world(req: peta::request::Request) -> peta::router::ReturnFuture {
+  println!("{:?}", req.params());
   let mut res = peta::response::Response::new();
   res.status(peta::status::OK);
   res.body_str("Hello world");

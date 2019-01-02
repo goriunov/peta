@@ -13,6 +13,7 @@ pub struct Request {
   body: Slice,
   method: Slice,
   version: u8,
+  params: Option<Vec<(&'static str, String)>>,
 }
 
 impl Request {
@@ -42,6 +43,7 @@ impl Request {
       method: to_slice(r.method.unwrap().as_bytes()),
       version: r.version.unwrap(),
       body: (amt, buffer.len()),
+      params: None,
       // move buff
       data: buffer.take(),
     }))
@@ -61,6 +63,14 @@ impl Request {
 
   pub fn version(&self) -> u8 {
     self.version
+  }
+
+  pub fn params(&self) -> &Option<Vec<(&'static str, String)>> {
+    &self.params
+  }
+
+  pub fn set_params(&mut self, params: Option<Vec<(&'static str, String)>>) {
+    self.params = params;
   }
 
   fn slice(&self, slice: &Slice) -> &[u8] {
