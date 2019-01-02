@@ -41,6 +41,14 @@ fn delay(req: peta::request::Request) -> peta::router::ReturnFuture {
   Box::new(delay)
 }
 
+fn hello_world(req: peta::request::Request) -> peta::router::ReturnFuture {
+  let mut res = peta::response::Response::new();
+  res.status(peta::status::OK);
+  res.body_str("Hello world");
+
+  Box::new(futures::future::ok(res))
+}
+
 fn not_found(req: peta::request::Request) -> peta::router::ReturnFuture {
   let mut res = peta::response::Response::new();
   res.status(peta::status::OK);
@@ -50,6 +58,7 @@ fn not_found(req: peta::request::Request) -> peta::router::ReturnFuture {
 }
 
 fn main() {
+  // find a wait to pass state !!
   let mut runtime = tokio::runtime::current_thread::Runtime::new().unwrap();
   let addr = "127.0.0.1:3000".parse().unwrap();
 
@@ -58,11 +67,16 @@ fn main() {
   // build router
   let mut router = peta::router::Router::new();
   // does not take routes order in account yet
+  router.add("/hello", hello_world);
   router.add("/home", home);
   router.add("/delay", delay);
   router.add("/delay/*", home);
   // we must provide "*" route // as a default response
   router.add("*", not_found);
+  router.add("/hello/:world", hello_world);
+
+  println!("{:#?}", router);
+  // will need to thing what is better
   let router = router.build();
 
   let server = listener
@@ -76,7 +90,8 @@ fn main() {
       let reader = peta::reader::HttpReader::new(read)
         .map_err(|e| println!("Error is: {}", e))
         .fold(write, move |writer, req| {
-          router.find(req.uri().path())(req)
+          router
+            .find(req)
             .and_then(|resp| resp.write(writer).map_err(|e| println!("Error: {}", e)))
         })
         .map(|_| ());

@@ -16,6 +16,7 @@ type StoreFunc = Box<
 >;
 
 pub struct Node {
+  param: Option<&'static str>,
   method: Option<StoreFunc>,
   children: Option<hashbrown::HashMap<&'static str, Node>>,
 }
@@ -24,9 +25,10 @@ impl std::fmt::Debug for Node {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     write!(
       f,
-      "Node {{ \n children: {:#?}, \n method: {:#?} \n}}",
+      "Node {{ \nchildren: {:#?}, \nmethod: {:#?} \nparam:{:#?}\n}}",
       self.children,
-      self.method.is_some()
+      self.method.is_some(),
+      self.param
     )
   }
 }
@@ -40,6 +42,7 @@ impl Router {
   pub fn new() -> Router {
     Router {
       routes: Node {
+        param: None,
         method: None,
         children: None,
       },
@@ -50,12 +53,12 @@ impl Router {
     Arc::new(self)
   }
 
-  pub fn find(&self, path: &str) -> &StoreFunc {
+  pub fn find(&self, req: request::Request) -> ReturnFuture {
     // !! we need to do a lot of optimization for search
     // and add additional router parsing things
     let mut node = &self.routes;
 
-    for seg in path.split('/') {
+    for seg in req.uri().path().split('/') {
       if seg.len() > 0 {
         if node.children.is_none() {
           break;
@@ -80,10 +83,10 @@ impl Router {
     }
 
     match node.method.as_ref() {
-      Some(func) => (func),
+      Some(func) => (func)(req),
       None => {
         // if none then load 404 route
-        (self.routes.method.as_ref().unwrap())
+        (self.routes.method.as_ref().unwrap())(req)
       }
     }
   }
@@ -105,14 +108,20 @@ impl Router {
 
     for item in path.split('/') {
       if item.len() > 0 {
-        add_node(node, item);
-        // set Node to next level
-        node = node.children.as_mut().unwrap().get_mut(item).unwrap();
+        // check if route is param route
+        let mut path_chars = item.chars();
+
+        if path_chars.next() == Some(':') {
+          add_node(node, ":", Some(path_chars.as_str()));
+          node = node.children.as_mut().unwrap().get_mut(":").unwrap();
+        } else {
+          add_node(node, item, None);
+          node = node.children.as_mut().unwrap().get_mut(item).unwrap();
+        }
       }
     }
 
     set_func(node, Box::new(func));
-    // println!("{:#?}", self);
   }
 }
 
@@ -120,18 +129,18 @@ fn set_func(node: &mut Node, func: StoreFunc) {
   node.method = Some(func);
 }
 
-fn add_node(node: &mut Node, path: &'static str) {
+fn add_node(node: &mut Node, path: &'static str, param: Option<&'static str>) {
   // if no children exist then create new one
   if node.children.is_none() {
     let mut hash = hashbrown::HashMap::new();
     hash.insert(
       path,
       Node {
+        param,
         method: None,
         children: None,
       },
     );
-
     node.children = Some(hash);
   } else {
     // if we have children then reuse existing or add new
@@ -140,6 +149,7 @@ fn add_node(node: &mut Node, path: &'static str) {
       children.insert(
         path,
         Node {
+          param,
           method: None,
           children: None,
         },

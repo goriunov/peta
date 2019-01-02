@@ -8,11 +8,10 @@ type Slice = (usize, usize);
 
 // need to add headers
 pub struct Request {
+  data: BytesMut,
   uri: Uri,
   body: Slice,
-  // path: Slice,
   method: Slice,
-  data: BytesMut,
   version: u8,
 }
 
@@ -38,18 +37,6 @@ impl Request {
       (start, start + a.len())
     };
 
-    // r.uri()
-
-    // letr.path
-    //
-    //
-    // we need to have thing here
-
-    // let uri = "/foo/bar?baz".parse::<Uri>().unwrap();
-    // assert_eq!(uri.path(), "/foo/bar");
-    // assert_eq!(uri.query(), Some("baz"));
-    // assert_eq!(uri.host(), None);
-
     Ok(Some(Request {
       uri: r.path.unwrap().parse::<Uri>().unwrap(),
       method: to_slice(r.method.unwrap().as_bytes()),
@@ -62,7 +49,6 @@ impl Request {
 
   pub fn uri(&self) -> &Uri {
     &self.uri
-    // std::str::from_utf8(self.slice(&self.path)).unwrap()
   }
 
   pub fn method(&self) -> &str {
