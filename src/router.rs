@@ -1,4 +1,5 @@
 // implement router logic
+use crate::method;
 use crate::request;
 use crate::response;
 
@@ -22,6 +23,14 @@ pub struct Node {
 }
 
 impl Node {
+  pub fn default() -> Node {
+    Node {
+      param: None,
+      method: None,
+      children: None,
+    }
+  }
+
   pub fn set_func(&mut self, func: StoreFunc) {
     self.method = Some(func);
   }
@@ -47,24 +56,19 @@ impl Node {
         children: None,
       },
     );
-
+    // this item is just added
     node_map.get_mut(seg).unwrap()
   }
 }
 
-impl std::fmt::Debug for Node {
-  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-    write!(
-      f,
-      "Node {{ \n\tchildren: {:#?}, \n\tmethod: {:#?} \n\tparam:{:#?}\n}}",
-      self.children,
-      self.method.is_some(),
-      self.param
-    )
-  }
-}
-
 pub struct Router {
+  get: Node,
+  put: Node,
+  post: Node,
+  head: Node,
+  patch: Node,
+  delete: Node,
+  options: Node,
   routes: Node,
   default: Option<StoreFunc>,
 }
@@ -73,11 +77,16 @@ impl Router {
   pub fn new() -> Router {
     Router {
       default: None,
-      routes: Node {
-        param: None,
-        method: None,
-        children: None,
-      },
+      // for now leave this one in
+      routes: Node::default(),
+      // create separate bucket for each method (not fun) :(
+      get: Node::default(),
+      put: Node::default(),
+      post: Node::default(),
+      head: Node::default(),
+      patch: Node::default(),
+      delete: Node::default(),
+      options: Node::default(),
     }
   }
 
@@ -86,12 +95,14 @@ impl Router {
   }
 
   // rewrite and optimize find algorithm
+  // need to re implement find method
   pub fn find(&self, mut req: request::Request) -> ReturnFuture {
     // !! we need to do a lot of optimization for search
     // and add additional router parsing things
     let mut node = &self.routes;
     let mut not_found: bool = false;
 
+    // this thing does not work properly
     if req.uri().path() == "/" {
       return (node.method.as_ref().unwrap())(req);
     }
@@ -151,14 +162,24 @@ impl Router {
     }
   }
 
-  pub fn add<F>(&mut self, path: &'static str, func: F)
+  pub fn add<F>(&mut self, method: &str, path: &'static str, func: F)
   where
     F: Fn(request::Request) -> Box<Future<Item = response::Response, Error = ()> + Send + Sync>
       + Send
       + Sync
       + 'static,
   {
-    let mut node = &mut self.routes;
+    // use proper enum
+    let mut node = match method {
+      method::GET => &mut self.get,
+      method::PUT => &mut self.put,
+      method::POST => &mut self.post,
+      method::HEAD => &mut self.head,
+      method::PATCH => &mut self.patch,
+      method::DELETE => &mut self.delete,
+      method::OPTIONS => &mut self.options,
+      _ => &mut self.routes,
+    };
 
     match path {
       "*" => {
@@ -186,5 +207,32 @@ impl Router {
         node.set_func(Box::new(func));
       }
     }
+  }
+}
+
+///
+///
+/// temp fmt for above struct(s)
+///
+///
+impl std::fmt::Debug for Router {
+  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    write!(
+      f,
+      "Router {{ \n   get: {:#?}, \npost: {:#?} \ndelete:{:#?}\nput:{:#?} \nroutes:{:#?} \n}}",
+      self.get, self.post, self.delete, self.put, self.routes
+    )
+  }
+}
+
+impl std::fmt::Debug for Node {
+  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    write!(
+      f,
+      "Node {{ \n\tchildren: {:#?}, \n\tmethod: {:#?} \n\tparam:{:#?}\n}}",
+      self.children,
+      self.method.is_some(),
+      self.param
+    )
   }
 }

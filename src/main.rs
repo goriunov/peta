@@ -1,7 +1,7 @@
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 
-use peta::server::{status, HttpReader, Request, Response, ReturnFuture, Router};
+use peta::server::{method, status, HttpReader, Request, Response, ReturnFuture, Router};
 
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
@@ -69,15 +69,15 @@ fn main() {
   // build router
   let mut router = Router::new();
   // does not take routes order in account yet
-  router.add("/hello", hello_world);
-  router.add("/home", home);
-  router.add("/delay", delay);
-  router.add("/delay/*", home);
+  router.add(method::GET, "/hello", hello_world);
+  router.add(method::GET, "/home", home);
+  router.add(method::GET, "/delay", delay);
+  router.add(method::GET, "/delay/*", home);
   // we must provide "*" route // as a default response
-  router.add("*", not_found);
-  router.add("/hello/:world", hello_world);
+  router.add(method::GET, "*", not_found);
+  router.add(method::GET, "/hello/:world", hello_world);
 
-  // println!("{:#?}", router);
+  println!("{:#?}", router);
   // will need to thing what is better
   let router = router.build();
 
