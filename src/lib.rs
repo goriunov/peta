@@ -1,9 +1,18 @@
 // private
-pub mod writer;
+mod writer;
+
+mod reader;
+mod request;
+mod response;
+mod router;
 
 // public
-pub mod reader;
-pub mod request;
-pub mod response;
-pub mod router;
 pub mod status;
+
+pub mod server {
+  pub use crate::reader::HttpReader;
+  pub use crate::request::Request;
+  pub use crate::response::Response;
+  pub use crate::router::{ReturnFuture, Router};
+  pub use crate::status;
+}

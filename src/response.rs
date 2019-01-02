@@ -1,3 +1,4 @@
+use super::status;
 use super::writer;
 
 use bytes::{BufMut, BytesMut};
@@ -5,33 +6,25 @@ use tokio::prelude::*;
 
 pub struct Response {
   body: Option<Vec<u8>>,
-  status: String,
-  headers: Vec<String>,
+  status: Option<&'static str>,
+  headers: Vec<(String, String)>,
 }
 
 impl Response {
   pub fn new() -> Response {
     Response {
       body: None,
-      status: String::with_capacity(100),
+      status: None,
       headers: Vec::with_capacity(50),
     }
   }
 
-  pub fn status(&mut self, status: &str) {
-    self.status.push_str("HTTP/1.1 ");
-    self.status.push_str(status);
-    self.status.push_str("\r\n");
+  pub fn status(&mut self, status: &'static str) {
+    self.status = Some(status);
   }
 
   pub fn header(&mut self, name: &str, value: &str) {
-    let mut header = String::with_capacity(4 + name.len() + value.len());
-    header.push_str(name);
-    header.push_str(": ");
-    header.push_str(value);
-    header.push_str("\r\n");
-    self.headers.push(header);
-    // add header to the header array
+    self.headers.push((name.to_string(), value.to_string()));
   }
 
   pub fn body_vec(&mut self, body: Vec<u8>) {
@@ -47,31 +40,34 @@ impl Response {
     // write all data together
     let mut buf = BytesMut::with_capacity(4096);
 
-    push(&mut buf, self.status.as_bytes());
+    // write status, set default to 200 if does not exist
+    push(&mut buf, b"HTTP/1.1 ");
+    push(&mut buf, self.status.unwrap_or(status::OK).as_bytes());
+    push(&mut buf, b"\r\n");
 
-    // loop and add headers
+    // write headers
     for &ref val in &self.headers {
-      push(&mut buf, val.as_bytes());
+      push(&mut buf, val.0.as_bytes());
+      push(&mut buf, b": ");
+      push(&mut buf, val.1.as_bytes());
+      push(&mut buf, b"\r\n");
     }
 
-    // add content length and
-    let mut content_headers = String::with_capacity(50);
-
+    // add content-length and actual body
     match &self.body {
       Some(body) => {
-        content_headers.push_str("Content-Length: ");
-        content_headers.push_str(&body.len().to_string());
-        push(&mut buf, content_headers.as_bytes());
+        push(&mut buf, b"content-length: ");
+        push(&mut buf, body.len().to_string().as_bytes());
         push(&mut buf, b"\r\n\r\n");
         push(&mut buf, body.as_slice());
       }
       None => {
-        content_headers.push_str("Content-Length: 0");
-        push(&mut buf, content_headers.as_bytes());
+        push(&mut buf, b"Content-Length: 0");
         push(&mut buf, b"\r\n\r\n");
       }
     }
 
+    // write to socket
     writer::write_all(writer, buf)
   }
 }

@@ -13,6 +13,7 @@ pub struct Request {
   body: Slice,
   method: Slice,
   version: u8,
+  // optimize params
   params: Option<Vec<(&'static str, String)>>,
 }
 

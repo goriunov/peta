@@ -1,12 +1,12 @@
-use peta;
-
 use tokio::net::TcpListener;
 use tokio::prelude::*;
+
+use peta::server::{status, HttpReader, Request, Response, ReturnFuture, Router};
 
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
 
-use http::Uri;
+// use http::Uri;
 
 // Test json response
 use serde::{Deserialize, Serialize};
@@ -18,22 +18,23 @@ struct Person {
   last_name: String,
 }
 
-fn home(req: peta::request::Request) -> peta::router::ReturnFuture {
-  let mut res = peta::response::Response::new();
-  res.status(peta::status::OK);
+fn home(req: Request) -> ReturnFuture {
+  let mut res = Response::new();
+  res.status(status::OK);
   res.body_str(req.uri().path());
 
+  // need to abstract response way
   Box::new(futures::future::ok(res))
 }
 
-fn delay(req: peta::request::Request) -> peta::router::ReturnFuture {
+fn delay(req: Request) -> ReturnFuture {
   let when = Instant::now() + Duration::from_millis(2000);
 
   let delay = Delay::new(when)
     .map_err(|e| panic!("Delay errored; err={:?}", e))
     .and_then(move |_| {
-      let mut res = peta::response::Response::new();
-      res.status(peta::status::OK);
+      let mut res = Response::new();
+      res.status(status::OK);
       res.body_str("Hello world!");
       Ok(res)
     });
@@ -41,18 +42,18 @@ fn delay(req: peta::request::Request) -> peta::router::ReturnFuture {
   Box::new(delay)
 }
 
-fn hello_world(req: peta::request::Request) -> peta::router::ReturnFuture {
-  println!("{:?}", req.params());
-  let mut res = peta::response::Response::new();
-  res.status(peta::status::OK);
+fn hello_world(req: Request) -> ReturnFuture {
+  // println!("{:?}", req.params());
+  let mut res = Response::new();
+  res.status(status::OK);
   res.body_str("Hello world");
 
   Box::new(futures::future::ok(res))
 }
 
-fn not_found(req: peta::request::Request) -> peta::router::ReturnFuture {
-  let mut res = peta::response::Response::new();
-  res.status(peta::status::OK);
+fn not_found(req: Request) -> ReturnFuture {
+  let mut res = Response::new();
+  res.status(status::OK);
   res.body_str("Did not found page");
 
   Box::new(futures::future::ok(res))
@@ -66,7 +67,7 @@ fn main() {
   let listener = TcpListener::bind(&addr).expect("unable to bind TCP listener");
 
   // build router
-  let mut router = peta::router::Router::new();
+  let mut router = Router::new();
   // does not take routes order in account yet
   router.add("/hello", hello_world);
   router.add("/home", home);
@@ -88,12 +89,12 @@ fn main() {
 
       // get arc pointer
       let router = router.clone();
-      let reader = peta::reader::HttpReader::new(read)
+      let reader = HttpReader::new(read)
         .map_err(|e| println!("Error is: {}", e))
         .fold(write, move |writer, req| {
           router
             .find(req)
-            .and_then(|resp| resp.write(writer).map_err(|e| println!("Error: {}", e)))
+            .and_then(|rsp| rsp.write(writer).map_err(|e| println!("Error: {}", e)))
         })
         .map(|_| ());
 
