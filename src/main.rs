@@ -71,7 +71,6 @@ fn main() {
   router.add(method::GET, "/home", home);
   router.add(method::GET, "/delay", delay);
   router.add(method::GET, "/delay/*", home);
-
   router.add(method::GET, "/hello/:world/", hello_world);
 
   // we must provide "*" route // as a default response
@@ -91,7 +90,7 @@ fn main() {
       // get arc pointer
       let router = router.clone();
       let reader = HttpReader::new(read)
-        .map_err(|e| println!("Error is: {}", e))
+        .map_err(|e| println!("Global Error is: {}", e))
         .fold(write, move |writer, req| {
           router
             .find(req)

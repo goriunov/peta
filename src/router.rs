@@ -8,6 +8,7 @@ use tokio::prelude::*;
 
 use std::sync::Arc;
 
+// rename this type (dont like this name (: )
 pub type ReturnFuture = Box<dyn Future<Item = response::Response, Error = ()> + Send + Sync>;
 
 type StoreFunc = Box<
