@@ -5,6 +5,7 @@ use bytes::{BufMut, BytesMut};
 use tokio::prelude::*;
 
 pub struct Response {
+  // consider to use different body structure
   body: Option<Vec<u8>>,
   status: Option<&'static str>,
   headers: Vec<(&'static str, &'static str)>,
@@ -27,6 +28,7 @@ impl Response {
     self.headers.push((name, value));
   }
 
+  // need to add different ways to add body
   pub fn body_vec(&mut self, body: Vec<u8>) {
     self.body = Some(body);
   }
@@ -61,11 +63,8 @@ impl Response {
         push(&mut buf, b"\r\n\r\n");
         push(&mut buf, body.as_slice());
       }
-      None => {
-        push(&mut buf, b"Content-Length: 0");
-        push(&mut buf, b"\r\n\r\n");
-      }
-    }
+      None => push(&mut buf, b"Content-Length: 0\r\n\r\n"),
+    };
 
     // write to socket
     writer::write_all(writer, buf)

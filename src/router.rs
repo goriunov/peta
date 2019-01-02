@@ -61,7 +61,7 @@ impl Router {
     let mut not_found: bool = false;
 
     // need to add capacity to do not relocate
-    // how do we return param
+    // how do we return
     let mut params: Vec<(&'static str, String)> = Vec::new();
 
     for seg in req.uri().path().split('/') {
