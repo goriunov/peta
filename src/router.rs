@@ -1,67 +1,49 @@
-// implement router logic
 use crate::method;
 use crate::request;
 use crate::response;
 
-use hashbrown;
+use hashbrown::HashMap;
 use tokio::prelude::*;
 
 use std::sync::Arc;
 
-// rename this type (dont like this name (: )
-pub type ReturnFuture = Box<dyn Future<Item = response::Response, Error = ()> + Send + Sync>;
+/// Abstraction of the return Boxed Future.
+///
+/// # Example
+/// Each function which will be passed to `Router` must return
+/// `ResponseFut`
+/// ```
+/// fn hello(req: Request) -> ResponseFut {
+///   // rest of the code
+/// }
+///
+/// router.get("/", hello)
+/// ```
+pub type ResponseFut = Box<dyn Future<Item = response::Response, Error = ()> + Send + Sync>;
 
-type StoreFunc = Box<
-  dyn Fn(request::Request) -> Box<dyn Future<Item = response::Response, Error = ()> + Send + Sync>
-    + Send
-    + Sync,
->;
-
-pub struct Node {
-  param: Option<&'static str>,
-  method: Option<StoreFunc>,
-  children: Option<hashbrown::HashMap<&'static str, Node>>,
-}
-
-impl Node {
-  pub fn default() -> Node {
-    Node {
-      param: None,
-      method: None,
-      children: None,
-    }
-  }
-
-  pub fn set_func(&mut self, func: StoreFunc) {
-    self.method = Some(func);
-  }
-
-  pub fn add_child(&mut self, seg: &'static str, param: Option<&'static str>) -> &mut Node {
-    if self.children.is_none() {
-      self.children = Some(hashbrown::HashMap::new())
-    }
-
-    let node_map = self.children.as_mut().unwrap();
-
-    // if key exist then return existing node ref
-    if node_map.contains_key(seg) {
-      return node_map.get_mut(seg).unwrap();
-    }
-
-    // create new if node
-    node_map.insert(
-      seg,
-      Node {
-        param,
-        method: None,
-        children: None,
-      },
-    );
-    // this item is just added
-    node_map.get_mut(seg).unwrap()
-  }
-}
-
+/// Generates map between `path` and `method` which returns `ResponseFut`
+/// supports `*` and `:` operators.
+///
+/// # Example
+///
+/// ```
+/// let mut router = Router::new();
+///
+/// router.get("/", |req: Request| {
+///   // do not forget to return ResponseFut
+/// });
+///
+/// router.post("/home", |req: Request| {
+///   // do not forget to return ResponseFut
+/// });
+///
+/// // It is important to add default route
+/// // can be simple 404 which will be called if nothing found
+/// router.add_default(|req: Request| {});
+///
+/// let router = router.build();
+///
+/// ```
 pub struct Router {
   get: Node,
   put: Node,
@@ -75,6 +57,11 @@ pub struct Router {
 }
 
 impl Router {
+  /// Create instance of Router.
+  ///
+  /// ```
+  /// let router = Router::new();
+  /// ```
   pub fn new() -> Router {
     Router {
       default: None,
@@ -91,12 +78,76 @@ impl Router {
     }
   }
 
+  /// Wrap router in `Arc` to be able to pass it across threads/components.
+  ///
+  /// ```
+  /// let mut router = Router::new();
+  /// // do some things with router variable
+  ///
+  /// let router = router.build();
+  ///
+  /// // now we can simply clone and call any functions from router instance
+  /// let ref_router = router.clone();
+  /// ```
   pub fn build(self) -> Arc<Self> {
     Arc::new(self)
   }
 
-  // sort out default route it does not look good
-  pub fn find(&self, mut req: request::Request) -> ReturnFuture {
+  /// Adds new `path -> method` map to the Router.
+  ///
+  /// ```
+  /// router.add(method::GET, "/", |req: Request| {});
+  /// router.add(method::POST, "/", |req: Request| {});
+  /// // and so on
+  /// ```
+  pub fn add<F>(&mut self, method: &str, path: &'static str, func: F)
+  where
+    F: Fn(request::Request) -> ResponseFut + Send + Sync + 'static,
+  {
+    // use proper enum
+    let mut node = match method {
+      method::GET => &mut self.get,
+      method::PUT => &mut self.put,
+      method::POST => &mut self.post,
+      method::HEAD => &mut self.head,
+      method::PATCH => &mut self.patch,
+      method::DELETE => &mut self.delete,
+      method::OPTIONS => &mut self.options,
+      _ => &mut self.routes,
+    };
+
+    match path {
+      "/" => {
+        // handle / case
+        node.set_func(Box::new(func));
+      }
+      _ => {
+        // handle rest of the cases
+        for seg in path.split('/') {
+          if !seg.is_empty() {
+            let mut seg_arr = seg.chars();
+            // check if path is param
+            if seg_arr.next() == Some(':') {
+              node = node.add_child(":", Some(seg_arr.as_str()));
+              continue;
+            }
+            node = node.add_child(seg, None);
+          }
+        }
+
+        node.set_func(Box::new(func));
+      }
+    }
+  }
+
+  /// Searches for appropriate `method` which is mapped to specific `path`
+  ///
+  /// ```
+  /// let req: request::Request;
+  /// // it will automatically extract path from `req`
+  /// router.find(req)
+  /// ```
+  pub fn find(&self, mut req: request::Request) -> ResponseFut {
     let mut node = match req.method() {
       method::GET => &self.get,
       method::PUT => &self.put,
@@ -171,59 +222,125 @@ impl Router {
     }
   }
 
-  pub fn add<F>(&mut self, method: &str, path: &'static str, func: F)
+  /// Set default function for routes which were not mapped
+  /// can be simple 404 response.
+  ///
+  /// ```
+  /// router.add_default(|req: Request| {});
+  /// ```
+  pub fn add_default<F>(&mut self, func: F)
   where
-    F: Fn(request::Request) -> Box<Future<Item = response::Response, Error = ()> + Send + Sync>
-      + Send
-      + Sync
-      + 'static,
+    F: Fn(request::Request) -> ResponseFut + Send + Sync + 'static,
   {
-    // use proper enum
-    let mut node = match method {
-      method::GET => &mut self.get,
-      method::PUT => &mut self.put,
-      method::POST => &mut self.post,
-      method::HEAD => &mut self.head,
-      method::PATCH => &mut self.patch,
-      method::DELETE => &mut self.delete,
-      method::OPTIONS => &mut self.options,
-      _ => &mut self.routes,
-    };
-
-    match path {
-      "*" => {
-        // default or 404 case we must have one for now :(
-        self.default = Some(Box::new(func));
-      }
-      "/" => {
-        // handle / case
-        node.set_func(Box::new(func));
-      }
-      _ => {
-        // handle rest of the cases
-        for seg in path.split('/') {
-          if !seg.is_empty() {
-            let mut seg_arr = seg.chars();
-            // check if path is param
-            if seg_arr.next() == Some(':') {
-              node = node.add_child(":", Some(seg_arr.as_str()));
-              continue;
-            }
-            node = node.add_child(seg, None);
-          }
-        }
-
-        node.set_func(Box::new(func));
-      }
-    }
+    self.default = Some(Box::new(func));
   }
 }
 
-///
-///
-/// temp fmt for above struct(s)
-///
-///
+/// Abstracts `add` method by removing `method::*` param
+impl Router {
+  pub fn get<F>(&mut self, path: &'static str, func: F)
+  where
+    F: Fn(request::Request) -> ResponseFut + Send + Sync + 'static,
+  {
+    self.add(method::GET, path, func)
+  }
+
+  pub fn put<F>(&mut self, path: &'static str, func: F)
+  where
+    F: Fn(request::Request) -> ResponseFut + Send + Sync + 'static,
+  {
+    self.add(method::PUT, path, func)
+  }
+
+  pub fn post<F>(&mut self, path: &'static str, func: F)
+  where
+    F: Fn(request::Request) -> ResponseFut + Send + Sync + 'static,
+  {
+    self.add(method::POST, path, func)
+  }
+
+  pub fn head<F>(&mut self, path: &'static str, func: F)
+  where
+    F: Fn(request::Request) -> ResponseFut + Send + Sync + 'static,
+  {
+    self.add(method::HEAD, path, func)
+  }
+
+  pub fn patch<F>(&mut self, path: &'static str, func: F)
+  where
+    F: Fn(request::Request) -> ResponseFut + Send + Sync + 'static,
+  {
+    self.add(method::PATCH, path, func)
+  }
+
+  pub fn delete<F>(&mut self, path: &'static str, func: F)
+  where
+    F: Fn(request::Request) -> ResponseFut + Send + Sync + 'static,
+  {
+    self.add(method::DELETE, path, func)
+  }
+
+  pub fn options<F>(&mut self, path: &'static str, func: F)
+  where
+    F: Fn(request::Request) -> ResponseFut + Send + Sync + 'static,
+  {
+    self.add(method::OPTIONS, path, func)
+  }
+}
+
+// probably will need to move it out of router component
+type StoreFunc = Box<
+  dyn Fn(request::Request) -> Box<dyn Future<Item = response::Response, Error = ()> + Send + Sync>
+    + Send
+    + Sync,
+>;
+
+struct Node {
+  param: Option<&'static str>,
+  method: Option<StoreFunc>,
+  children: Option<HashMap<&'static str, Node>>,
+}
+
+impl Node {
+  pub fn default() -> Node {
+    Node {
+      param: None,
+      method: None,
+      children: None,
+    }
+  }
+
+  pub fn set_func(&mut self, func: StoreFunc) {
+    self.method = Some(func);
+  }
+
+  pub fn add_child(&mut self, seg: &'static str, param: Option<&'static str>) -> &mut Node {
+    if self.children.is_none() {
+      self.children = Some(HashMap::new())
+    }
+
+    let node_map = self.children.as_mut().unwrap();
+
+    // if key exist then return existing node ref
+    if node_map.contains_key(seg) {
+      return node_map.get_mut(seg).unwrap();
+    }
+
+    // create new if node
+    node_map.insert(
+      seg,
+      Node {
+        param,
+        method: None,
+        children: None,
+      },
+    );
+    // this item is just added
+    node_map.get_mut(seg).unwrap()
+  }
+}
+
+// temp debug setter
 impl std::fmt::Debug for Router {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     write!(

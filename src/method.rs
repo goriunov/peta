@@ -6,3 +6,4 @@ pub const HEAD: &str = "HEAD";
 pub const PATCH: &str = "PATCH";
 pub const DELETE: &str = "DELETE";
 pub const OPTIONS: &str = "OPTIONS";
+pub const DEFAULT: &str = "DEFAULT";

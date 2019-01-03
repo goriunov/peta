@@ -7,6 +7,18 @@ use tokio::prelude::*;
 
 use super::request;
 
+/// Reads and parses requests from `AsyncRead` socket
+///
+/// # Example
+/// ```
+/// let (read, write) = socket.split();
+/// let reader = HttpReader::new(read)
+///     .map_err(|e| println!("Error is: {}", e))
+///     .fold(write, |write, req| {
+///         // handle request from socket
+///         // and write response
+///     })
+/// ```
 pub struct HttpReader<S> {
   socket: S,
   closed: bool,

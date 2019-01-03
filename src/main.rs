@@ -1,22 +1,22 @@
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 
-use peta::server::{method, status, HttpReader, Request, Response, ReturnFuture, Router};
+use peta::{status, HttpReader, Request, Response, ResponseFut, Router};
 
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
 
 // Test json response
-use serde::{Deserialize, Serialize};
-use serde_json;
+// use serde::{Deserialize, Serialize};
+// use serde_json;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Person {
-  name: String,
-  last_name: String,
-}
+// #[derive(Serialize, Deserialize, Debug)]
+// struct Person {
+//   name: String,
+//   last_name: String,
+// }
 
-fn home(req: Request) -> ReturnFuture {
+fn home(req: Request) -> ResponseFut {
   let mut res = Response::new();
   res.status(status::OK);
   res.body_str(req.uri().path());
@@ -25,7 +25,7 @@ fn home(req: Request) -> ReturnFuture {
   Box::new(futures::future::ok(res))
 }
 
-fn delay(req: Request) -> ReturnFuture {
+fn delay(req: Request) -> ResponseFut {
   let when = Instant::now() + Duration::from_millis(2000);
 
   let delay = Delay::new(when)
@@ -40,7 +40,7 @@ fn delay(req: Request) -> ReturnFuture {
   Box::new(delay)
 }
 
-fn hello_world(req: Request) -> ReturnFuture {
+fn hello_world(req: Request) -> ResponseFut {
   // println!("{:?}", req.params());
   let mut res = Response::new();
   res.status(status::OK);
@@ -49,7 +49,7 @@ fn hello_world(req: Request) -> ReturnFuture {
   Box::new(futures::future::ok(res))
 }
 
-fn not_found(req: Request) -> ReturnFuture {
+fn not_found(req: Request) -> ResponseFut {
   let mut res = Response::new();
   res.status(status::OK);
   res.body_str("Did not found page");
@@ -67,15 +67,15 @@ fn main() {
   // build router
   let mut router = Router::new();
   // does not take routes order in account yet
-  router.add(method::GET, "/hello", hello_world);
-  router.add(method::GET, "/home", home);
-  router.add(method::GET, "/delay", delay);
-  router.add(method::GET, "/delay/*", home);
-  router.add(method::GET, "/hello/:world/", hello_world);
+  router.get("/hello", hello_world);
+  router.get("/home", home);
+  router.get("/delay", delay);
+  router.get("/delay/*", home);
+  router.get("/hello/:world/", hello_world);
+  router.get("/*", hello_world);
 
-  // we must provide "*" route // as a default response
-  // for now this route sets to default response
-  router.add(method::GET, "*", not_found);
+  // we must set default response in case of no route found
+  router.add_default(not_found);
 
   println!("{:#?}", router);
   // will need to thing what is better
