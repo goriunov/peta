@@ -1,14 +1,16 @@
 // private
 
+mod date;
 mod reader;
 mod request;
 mod response;
 mod router;
 mod writer;
 
-/// Exports most common HTTP statuses
+/// Exports common HTTP request methods
 pub mod method;
-/// Exports most common HTTP request methods
+
+/// Exports common HTTP statuses
 pub mod status;
 
 pub use crate::reader::HttpReader;

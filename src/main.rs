@@ -45,6 +45,8 @@ fn hello_world(req: Request) -> ResponseFut {
   let mut res = Response::new();
   res.status(status::OK);
   res.body_str("Hello world!");
+  // i need to attach date header manually
+  // res.header("date", "Fri, 04 Jan 2019 04:58:29 GMT");
 
   Box::new(futures::future::ok(res))
 }
@@ -77,7 +79,6 @@ fn main() {
   // we must set default response in case of no route found
   router.add_default(not_found);
 
-  println!("{:#?}", router);
   // will need to thing what is better
   let router = router.build();
 

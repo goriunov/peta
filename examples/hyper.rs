@@ -9,7 +9,7 @@ use hyper::{Body, Response, Server};
 use tokio::runtime::current_thread;
 
 fn main() {
-  let addr = ([127, 0, 0, 1], 3001).into();
+  let addr = ([127, 0, 0, 1], 3000).into();
 
   // Using a !Send request counter is fine on 1 thread...
 
