@@ -288,6 +288,7 @@ impl Router {
   }
 }
 
+// need to add some docs for Node
 // probably will need to move it out of router component
 type StoreFunc = Box<
   dyn Fn(request::Request) -> Box<dyn Future<Item = response::Response, Error = ()> + Send + Sync>
@@ -340,7 +341,7 @@ impl Node {
   }
 }
 
-// temp debug setter
+// Need to improve debug printing
 impl std::fmt::Debug for Router {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     write!(

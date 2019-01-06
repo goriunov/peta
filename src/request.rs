@@ -1,3 +1,4 @@
+// need to add custom http request parser
 use std::io;
 
 use bytes::BytesMut;
@@ -5,9 +6,7 @@ use http::Uri;
 
 type Slice = (usize, usize);
 
-// need optimization !!! sooo slow this part
-
-// need to add headers
+/// Contains http request information.
 pub struct Request {
   data: BytesMut,
   uri: Uri,
@@ -41,12 +40,15 @@ impl Request {
       (start, start + a.len())
     };
 
+    //TODO: need to change this part to use slices
     let mut headers = Vec::with_capacity(r.headers.len());
     for header in r.headers.iter() {
       // this is not optimal (need to rethink whole connection)
+      let value = unsafe { std::str::from_utf8_unchecked(header.value) }.to_string();
       headers.push((
         header.name.to_string(),
-        String::from_utf8(header.value.to_vec()).unwrap(),
+        // this part is very slow
+        value,
       ));
     }
 
@@ -62,26 +64,72 @@ impl Request {
     }))
   }
 
+  /// Get reference to Uri which contains all req path information.
+  ///
+  /// ```
+  /// let uri_info = req.uri();
+  /// let path = uri_info.path();
+  /// // and so on
+  /// ```
   pub fn uri(&self) -> &Uri {
     &self.uri
   }
 
+  /// Get body of the request returns empty [u8] if no body provided.
+  ///
+  /// ```
+  /// let req_body = req.body();
+  /// ```
   pub fn body(&self) -> &[u8] {
     self.slice(&self.body)
   }
 
-  pub fn params(&self) -> &Option<Vec<(&'static str, String)>> {
-    &self.params
-  }
-
+  /// Get request method.
+  ///
+  /// ```
+  /// let method = req.method();
+  /// ```
   pub fn method(&self) -> &str {
     std::str::from_utf8(self.slice(&self.method)).unwrap()
   }
 
+  /// Get params from related to the Router.
+  ///
+  /// ```
+  /// // if you have router with :
+  /// router.get("/:hello", |req: Request| {
+  ///   // you can get `hello` param from `params`
+  ///   // make sure to check if value present
+  ///   let params = req.params().unwrap();
+  ///
+  ///   for param in params {
+  ///       // param.0 is `hello` and param.1 is value
+  ///   }
+  /// })
+  /// ```
+  pub fn params(&self) -> &Option<Vec<(&'static str, String)>> {
+    &self.params
+  }
+
+  /// Get request http version (minor http version)
+  ///
+  /// ```
+  /// // version will be 1 -> http 1.1 and 0 -> http 1.0
+  /// let version = req.version();
+  /// ```
   pub fn version(&self) -> u8 {
     self.version
   }
 
+  /// Get http request headers
+  ///
+  /// ```
+  /// let headers = req.headers();
+  ///
+  /// for header in headers {
+  ///    // header.0 is header name and header.1 is value
+  /// }
+  /// ```
   pub fn headers(&self) -> &Vec<(String, String)> {
     &self.headers
   }

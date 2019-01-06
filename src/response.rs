@@ -124,6 +124,7 @@ impl Response {
   }
 }
 
+// fast unsafe push
 pub(crate) fn push(buf: &mut BytesMut, data: &[u8]) {
   if buf.remaining_mut() < data.len() {
     buf.reserve(data.len());
