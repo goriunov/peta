@@ -1,3 +1,4 @@
+use super::date;
 use super::status;
 use super::writer;
 
@@ -104,10 +105,8 @@ impl Response {
       push(&mut buf, b"\r\n");
     }
 
-    // can simplify this later :)
-    push(&mut buf, b"date: ");
-    get_current_time(&mut buf);
-    push(&mut buf, b"\r\n");
+    // set date header
+    date::set_date_header(&mut buf);
 
     // add content-length and actual body
     match &self.body {
@@ -125,7 +124,7 @@ impl Response {
   }
 }
 
-fn push(buf: &mut BytesMut, data: &[u8]) {
+pub(crate) fn push(buf: &mut BytesMut, data: &[u8]) {
   if buf.remaining_mut() < data.len() {
     buf.reserve(data.len());
   }
@@ -134,50 +133,4 @@ fn push(buf: &mut BytesMut, data: &[u8]) {
     buf.bytes_mut()[..data.len()].copy_from_slice(data);
     buf.advance_mut(data.len());
   }
-}
-
-// Handle date cache
-use crate::date::HttpDate;
-use std::cell::RefCell;
-use std::time::SystemTime;
-
-struct CurrentTime {
-  bytes: [u8; 29],
-  time: Option<SystemTime>,
-}
-
-thread_local!(static TIME_CACHE: RefCell<CurrentTime> = RefCell::new(CurrentTime{
-  bytes: [0;29],
-  time: None,
-}));
-
-fn get_current_time(buf: &mut BytesMut) {
-  TIME_CACHE.with(|cache| {
-    let mut cache = cache.borrow_mut();
-    // need to optimize this part abit
-    match cache.time {
-      Some(time) => {
-        match time.elapsed() {
-          Ok(elapsed) => {
-            if elapsed.as_secs() >= 1 {
-              let d = SystemTime::now();
-              cache.bytes = HttpDate::from(&d).get_time_buffer();
-              cache.time = Some(d);
-            }
-          }
-          Err(e) => {
-            // an error occurred!
-            println!("Date gen error: {:?}", e);
-          }
-        }
-      }
-      None => {
-        let d = SystemTime::now();
-        cache.bytes = HttpDate::from(&d).get_time_buffer();
-        cache.time = Some(d);
-      }
-    }
-
-    push(buf, &cache.bytes);
-  });
 }
