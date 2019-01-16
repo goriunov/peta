@@ -1,86 +1,13 @@
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 
-use peta::{status, HttpReader, Request, Response, ResponseFut, Router};
-
-use std::time::{Duration, Instant};
-use tokio::timer::Delay;
-
-// Test json response
-// use serde::{Deserialize, Serialize};
-// use serde_json;
-
-// #[derive(Serialize, Deserialize, Debug)]
-// struct Person {
-//   name: String,
-//   last_name: String,
-// }
-
-fn home(req: Request) -> ResponseFut {
-  let mut res = Response::new();
-  res.status(status::OK);
-  res.body_str(req.uri().path());
-
-  // need to abstract response way
-  Box::new(futures::future::ok(res))
-}
-
-fn delay(req: Request) -> ResponseFut {
-  let when = Instant::now() + Duration::from_millis(2000);
-
-  let delay = Delay::new(when)
-    .map_err(|e| panic!("Delay errored; err={:?}", e))
-    .and_then(move |_| {
-      let mut res = Response::new();
-      res.status(status::OK);
-      res.body_str("Hello world!");
-      Ok(res)
-    });
-
-  Box::new(delay)
-}
-
-fn hello_world(req: Request) -> ResponseFut {
-  // println!("{:?}", req.params());
-  let mut res = Response::new();
-  res.status(status::OK);
-  res.body_str("Hello world!");
-  // i need to attach date header manually
-  // res.header("date", "Fri, 04 Jan 2019 04:58:29 GMT");
-
-  Box::new(futures::future::ok(res))
-}
-
-fn not_found(req: Request) -> ResponseFut {
-  let mut res = Response::new();
-  res.status(status::OK);
-  res.body_str("Did not found page");
-
-  Box::new(futures::future::ok(res))
-}
+use peta::reader;
 
 fn main() {
-  // find a wait to pass state !!
   let mut runtime = tokio::runtime::current_thread::Runtime::new().unwrap();
   let addr = "127.0.0.1:3000".parse().unwrap();
 
   let listener = TcpListener::bind(&addr).expect("unable to bind TCP listener");
-
-  // build router
-  let mut router = Router::new();
-  // does not take routes order in account yet
-  router.get("/hello", hello_world);
-  router.get("/home", home);
-  router.get("/delay", delay);
-  router.get("/delay/*", home);
-  router.get("/hello/:world/", hello_world);
-  router.get("/*", hello_world);
-
-  // we must set default response in case of no route found
-  router.add_default(not_found);
-
-  // will need to thing what is better
-  let router = router.build();
 
   let server = listener
     .incoming()
@@ -88,24 +15,23 @@ fn main() {
     .for_each(move |sock| {
       let (read, write) = sock.split();
 
-      // get arc pointer
-      let router = router.clone();
-      let reader = HttpReader::new(read)
+      let reader = reader::Reader::new(read)
         .map_err(|e| println!("Global Error is: {}", e))
         .fold(write, move |writer, req| {
-          router
-            .find(req)
-            .and_then(|rsp| rsp.write(writer).map_err(|e| println!("Error: {}", e)))
+          println!("{:#?}", req.content.unwrap().data);
+          // println!("{:#?}", req.content.unwrap().headers);
+
+          tokio::io::write_all(writer, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
+            .map_err(|e| println!("Global Error is: {}", e))
+            .and_then(|(a, b)| Ok(a))
+          // future::ok(writer)
         })
         .map(|_| ());
 
       tokio::runtime::current_thread::spawn(reader);
-      // tokio::spawn(reader);
       Ok(())
     });
 
   runtime.spawn(server);
   runtime.run().unwrap();
-
-  // tokio::run(server);
 }
