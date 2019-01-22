@@ -3,6 +3,9 @@ use tokio::prelude::*;
 
 use peta::reader;
 
+use std::time::{Duration, Instant};
+use tokio::timer::Delay;
+
 fn main() {
   let mut runtime = tokio::runtime::current_thread::Runtime::new().unwrap();
   let addr = "127.0.0.1:3000".parse().unwrap();
@@ -14,19 +17,114 @@ fn main() {
     .map_err(|e| eprintln!("accept failed = {:?}", e))
     .for_each(move |sock| {
       let (read, write) = sock.split();
+      let item = 0;
 
       let reader = reader::Reader::new(read)
         .map_err(|e| println!("Global Error is: {}", e))
-        .fold(write, move |writer, req| {
-          println!("{:#?}", req.content.unwrap().data);
-          // println!("{:#?}", req.content.unwrap().headers);
+        .fold(write, |write, (buf, state)| {
+          match state {
+            reader::State::Request => {
+              println!("Got request {}", std::str::from_utf8(&buf).unwrap());
+              futures::future::ok(write)
+            }
+            reader::State::Body => {
+              println!("Got body {}", std::str::from_utf8(&buf).unwrap());
 
-          tokio::io::write_all(writer, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
-            .map_err(|e| println!("Global Error is: {}", e))
-            .and_then(|(a, b)| Ok(a))
-          // future::ok(writer)
+              // i know that request completed can write response
+              futures::future::ok(write)
+            }
+            _ => futures::future::ok(write),
+          }
+
+          // futures::future::ok(item)
+          // let mut when = Instant::now() + Duration::from_millis(2000);
+
+          // if item == 0 {
+          //   println!("In 0");
+          //   when = Instant::now() + Duration::from_millis(10000);
+          // }
+
+          // if item == 1 {
+          //   println!("In 1");
+          //   when = Instant::now() + Duration::from_millis(100);
+          // }
+
+          // if item == 2 {
+          //   println!("In 2");
+          //   when = Instant::now() + Duration::from_millis(1);
+          // }
+
+          // let delay = Delay::new(when)
+          //   .map_err(|e| panic!("Delay errored; err={:?}", e))
+          //   .and_then(move |_| Ok(item + 1));
+          // delay
         })
-        .map(|_| ());
+        .map(|item| {
+          // println!("Completed {}", item);
+          ()
+        });
+
+      // let future = reader::Reader::new(read)
+      //   .on_headers(|state, data| {})
+      //   .on_body(|state, chunk| {
+      //     if chunk.is_last() {
+      //       // do some stuff
+      //     }
+
+      //     return state;
+      //   })
+      //   .complete(|state| {})
+      //   .build();
+
+      // future.fold(State::new(write), ||)
+
+      // router.find()
+
+      // let reader = reader::Reader::new(read)
+      //   .map_err(|e| println!("Global Error is: {}", e))
+      //   .fold(write, move |writer, req| {
+      //     if (req.is_headers()) {
+      //       // write.
+      //     }
+      //     // you can get all headers and the rest of the things here
+      //     // req.lock().d
+      //     // let req = req.lock().unwrap();
+      //     // println!("{:#?}", req.content.as_ref().unwrap().data);
+      //     // req
+      //     //   .on_data
+      //     //   .map_err(|e| println!("Error on data: {}", e))
+      //     //   .fold(writer, |writer, data| {
+      //     //     // data.is_chunk
+      //     //     // process data or send some resposne
+      //     //     // how to await future completion
+      //     //     Ok(writer)
+      //     //   })
+      //     //   .and_then(|writer| {
+      //     //     // data reading has ended
+      //     //     tokio::io::write_all(writer, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
+      //     //       .map_err(|e| println!("Global Error is"))
+      //     //   })
+      //     // .and_then(|(a, b)| Ok(a))
+      //     // .map(|(a, b)| {
+      //     //   // request is completed
+      //     //   // writer
+      //     // })
+      //     // println!("{:#?}", req.content.unwrap().data);
+      //     // println!("{:#?}", req.content.unwrap().headers);
+
+      //     // if req.is_chunked() {
+
+      //     // }
+
+      //     //
+      //     //
+      //     //
+      //     // Write data to the socket
+      //     tokio::io::write_all(writer, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
+      //       .map_err(|e| println!("Global Error is: {}", e))
+      //       .and_then(|(a, b)| Ok(a))
+      //   })
+      //   .map(|_| ());
 
       tokio::runtime::current_thread::spawn(reader);
       Ok(())
