@@ -6,6 +6,9 @@ use peta::reader;
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
 
+pub type ResponseFut =
+  Box<dyn Future<Item = tokio::io::WriteHalf<tokio::net::TcpStream>, Error = ()> + Send + Sync>;
+
 fn main() {
   let mut runtime = tokio::runtime::current_thread::Runtime::new().unwrap();
   let addr = "127.0.0.1:3000".parse().unwrap();
@@ -21,20 +24,41 @@ fn main() {
 
       let reader = reader::Reader::new(read)
         .map_err(|e| println!("Global Error is: {}", e))
-        .fold(write, |write, (buf, state)| {
+        .fold(write, |write, (buf, state)| -> ResponseFut {
+          let mut is_ready = false;
           match state {
-            reader::State::Request => {
-              println!("Got request {}", std::str::from_utf8(&buf).unwrap());
-              futures::future::ok(write)
+            reader::ReturnState::Full => {
+              // println!(
+              //   "Got request {}",
+              //   std::str::from_utf8(&buf.data.unwrap()).unwrap()
+              // );
+              is_ready = true;
+              // futures::future::ok(write)
             }
-            reader::State::Body => {
-              println!("Got body {}", std::str::from_utf8(&buf).unwrap());
+            reader::ReturnState::Chunked => {
+              // println!("Got body {}", std::str::from_utf8(&buf).unwrap());
+              // is_ready = true;
 
               // i know that request completed can write response
-              futures::future::ok(write)
+              // futures::future::ok(write)
             }
-            _ => futures::future::ok(write),
+            _ => {}
+          };
+          // println!("Hit here");
+          if is_ready {
+            // return Box::new(
+            return Box::new(
+              tokio::io::write_all(write, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
+                .map_err(|e| println!("Global Error is: {}", e))
+                .and_then(|(a, b)| Ok(a))
+                .map(|a| a),
+            );
+            // );
           }
+
+          // Box::new(
+          Box::new(futures::future::ok(write).and_then(|a| Ok(a)))
+          // )
 
           // futures::future::ok(item)
           // let mut when = Instant::now() + Duration::from_millis(2000);
