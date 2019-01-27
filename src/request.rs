@@ -3,13 +3,6 @@ use tokio::prelude::*;
 
 pub type Slice = (usize, usize);
 
-// pub struct Content {
-//   pub data: Option<BytesMut>,
-//   pub headers: Vec<(String, Slice)>,
-//   pub body: Slice,
-//   pub method: Slice,
-// }
-
 pub struct Request {
   pub data: Option<BytesMut>,
   pub headers: Vec<(String, Slice)>,
@@ -17,7 +10,7 @@ pub struct Request {
   pub method: Slice,
 }
 
-// impl Request {
+impl Request {}
 // pub fn new() -> Request {
 //   Request {
 //     data: None,
