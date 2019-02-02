@@ -1,3 +1,4 @@
+use futures::try_ready;
 use std::io;
 use tokio::prelude::*;
 
@@ -5,9 +6,9 @@ use bytes::{BufMut, BytesMut};
 
 use crate::request;
 
-pub enum ReturnState {
-  Full,
-  Chunked,
+pub enum ReturnType {
+  Data(BytesMut, bool),
+  Request(request::Request),
 }
 
 enum ReaderState {
@@ -17,7 +18,6 @@ enum ReaderState {
 }
 
 pub struct Reader<S> {
-  req: Option<request::Request>,
   state: ReaderState,
   socket: S,
   buffer: BytesMut,
@@ -28,7 +28,6 @@ pub struct Reader<S> {
 impl<S: AsyncRead> Reader<S> {
   pub fn new(socket: S) -> Reader<S> {
     Reader {
-      req: None,
       socket,
       state: ReaderState::Headers,
       buffer: BytesMut::with_capacity(1024),
@@ -44,7 +43,7 @@ impl<S: AsyncRead> Reader<S> {
 }
 
 impl<S: AsyncRead> Stream for Reader<S> {
-  type Item = (request::Request, ReturnState);
+  type Item = ReturnType;
   type Error = io::Error;
 
   fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -53,13 +52,11 @@ impl<S: AsyncRead> Stream for Reader<S> {
         ReaderState::Body => {
           if self.buffer.len() >= self.body_size {
             // we are ready to start next request
+            let data = self.buffer.split_to(self.body_size);
             self.state = ReaderState::Headers;
             self.body_size = 0;
 
-            // get current request and stream it out
-            let mut request = std::mem::replace(&mut self.req, None).unwrap();
-            request.data = Some(self.buffer.split_to(self.body_size));
-            return Ok(Async::Ready(Some((request, ReturnState::Full))));
+            return Ok(Async::Ready(Some(ReturnType::Data(data, true))));
           }
         }
         ReaderState::Chunk => {
@@ -78,6 +75,7 @@ impl<S: AsyncRead> Stream for Reader<S> {
               let mut headers: Vec<(String, request::Slice)> = Vec::with_capacity(r.headers.len());
               for header in r.headers.iter() {
                 let header_name = header.name.to_lowercase();
+
                 if header_name == "transfer-ecoding" {
                   // we need to check if it is actually chunked below thing is not right
                   self.chunked = true
@@ -93,38 +91,22 @@ impl<S: AsyncRead> Stream for Reader<S> {
                 headers.push((header_name, self.to_slice(header.value)));
               }
 
-              if !self.chunked {
-                self.body_size = self.body_size + amt;
-
-                if self.buffer.len() >= self.body_size {
-                  // request is ready
-                  let request = request::Request {
-                    headers,
-                    method: self.to_slice(r.method.unwrap().as_bytes()),
-                    body: (amt, self.body_size),
-                    data: Some(self.buffer.split_to(self.body_size)),
-                  };
-
-                  // reset on completed request
-                  self.body_size = 0;
-                  return Ok(Async::Ready(Some((request, ReturnState::Full))));
-                }
-
-                self.state = ReaderState::Body;
-                self.req = Some(request::Request {
-                  headers,
-                  method: self.to_slice(r.method.unwrap().as_bytes()),
-                  body: (amt, self.body_size),
-                  data: None,
-                });
-              } else {
-                self.state = ReaderState::Chunk;
-                // we need to stream request as ready
+              self.state = ReaderState::Body;
+              if self.chunked {
                 // and on next iteration it will check if we have any chunks available
+                self.state = ReaderState::Chunk;
               }
+
+              let req = request::Request {
+                headers,
+                method: self.to_slice(r.method.unwrap().as_bytes()),
+                data: self.buffer.split_to(amt),
+              };
+
+              return Ok(Async::Ready(Some(ReturnType::Request(req))));
             }
             Ok(httparse::Status::Partial) => {
-              // continue reading more
+              // continue reading as no enough headers available
             }
             Err(e) => {
               return Err(e);
@@ -137,18 +119,9 @@ impl<S: AsyncRead> Stream for Reader<S> {
         self.buffer.reserve(1024);
       }
 
-      match self.socket.read_buf(&mut self.buffer) {
-        Ok(Async::Ready(0)) => {
-          // connection is dead :)
-          return Ok(Async::Ready(None));
-        }
-        Ok(Async::Ready(_)) => continue,
-        Ok(Async::NotReady) => {
-          return Ok(Async::NotReady);
-        }
-        Err(e) => {
-          return Err(e);
-        }
+      let n = try_ready!(self.socket.read_buf(&mut self.buffer));
+      if n == 0 {
+        return Ok(Async::Ready(None));
       }
     }
   }

@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 
@@ -5,6 +6,38 @@ use peta::reader;
 
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
+
+struct BestRequest {}
+
+impl BestRequest {
+  pub fn on_data(self) {}
+  pub fn on_request(self) {}
+
+  // pub fn change(&mut self) {
+  //   self.hello = false;
+  // }
+
+  // pub fn exec(self) -> ResponseFutFunc {
+  //   let when = Instant::now() + Duration::from_millis(10000);
+
+  //   let delay = Delay::new(when)
+  //     .map_err(|e| panic!("Delay errored; err={:?}", e))
+  //     .and_then(|_| {
+  //       Ok((
+  //         String::from("HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"),
+  //         self,
+  //       ))
+  //     });
+
+  //   Box::new(delay)
+  //   // Box::new(futures::future::ok((
+  //   //   String::from("HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"),
+  //   //   self,
+  //   // )))
+  // }
+}
+
+pub type ResponseFutFunc = Box<dyn Future<Item = (String, BestRequest), Error = ()> + Send + Sync>;
 
 pub type ResponseFut =
   Box<dyn Future<Item = tokio::io::WriteHalf<tokio::net::TcpStream>, Error = ()> + Send + Sync>;
@@ -22,43 +55,62 @@ fn main() {
       let (read, write) = sock.split();
       let item = 0;
 
+      // let req = BestRequest { hello: false };
+
+      // let cb = || {
+      //   let index = 0;
+      //   println!("Index {}", index);
+
+      //   // return Box::new(futures::future::ok(write).and_then(|a| Ok(a)));
+      // };
+
+      // let cb = Arc::new(cb).clone();
+
+      // let request = {
+      //   on_chunk: || {}
+      // }
+
       let reader = reader::Reader::new(read)
         .map_err(|e| println!("Global Error is: {}", e))
-        .fold(write, |write, (buf, state)| -> ResponseFut {
+        .fold(write, move |write, state| -> ResponseFut {
           let mut is_ready = false;
+
           match state {
-            reader::ReturnState::Full => {
-              // println!(
-              //   "Got request {}",
-              //   std::str::from_utf8(&buf.data.unwrap()).unwrap()
-              // );
+            reader::ReturnType::Data(data, is_last) => {
+              // request is completed
+              if is_last {
+                return Box::new(
+                  tokio::io::write_all(write, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
+                    .map_err(|e| println!("Global Error is: {}", e))
+                    .and_then(|(a, b)| Ok(a))
+                    .map(|a| a),
+                );
+                // dbg!(data);
+              }
+            }
+            reader::ReturnType::Request(req) => {
+              // dbg!(&req.data);
               is_ready = true;
               // futures::future::ok(write)
             }
-            reader::ReturnState::Chunked => {
-              // println!("Got body {}", std::str::from_utf8(&buf).unwrap());
-              // is_ready = true;
-
-              // i know that request completed can write response
-              // futures::future::ok(write)
-            }
-            _ => {}
           };
-          // println!("Hit here");
-          if is_ready {
-            // return Box::new(
-            return Box::new(
-              tokio::io::write_all(write, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
-                .map_err(|e| println!("Global Error is: {}", e))
-                .and_then(|(a, b)| Ok(a))
-                .map(|a| a),
-            );
-            // );
-          }
 
-          // Box::new(
-          Box::new(futures::future::ok(write).and_then(|a| Ok(a)))
-          // )
+          return Box::new(futures::future::ok(write));
+          // println!("Hit here");
+          // if is_ready {
+          // return Box::new(
+          // return Box::new(
+          //   tokio::io::write_all(write, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
+          //     .map_err(|e| println!("Global Error is: {}", e))
+          //     .and_then(|(a, b)| Ok(a))
+          //     .map(|a| a),
+          // );
+          // );
+          // }
+          // togther.1.change();
+          // (cb)(&mut write)
+
+          // Box::new(futures::future::ok(togther).and_then(|a| Ok(a)))
 
           // futures::future::ok(item)
           // let mut when = Instant::now() + Duration::from_millis(2000);

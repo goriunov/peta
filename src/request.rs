@@ -4,9 +4,8 @@ use tokio::prelude::*;
 pub type Slice = (usize, usize);
 
 pub struct Request {
-  pub data: Option<BytesMut>,
+  pub data: BytesMut,
   pub headers: Vec<(String, Slice)>,
-  pub body: Slice,
   pub method: Slice,
 }
 
