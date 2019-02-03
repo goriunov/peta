@@ -93,13 +93,14 @@ impl<S: AsyncRead> Stream for Reader<S> {
 
               self.state = ReaderState::Body;
               if self.chunked {
-                // and on next iteration it will check if we have any chunks available
+                // on next iteration it will check if we have any chunks available
                 self.state = ReaderState::Chunk;
               }
 
               let req = request::Request {
                 headers,
                 method: self.to_slice(r.method.unwrap().as_bytes()),
+                version: r.version.unwrap(),
                 data: self.buffer.split_to(amt),
               };
 

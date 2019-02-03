@@ -6,6 +6,7 @@ pub type Slice = (usize, usize);
 pub struct Request {
   pub data: BytesMut,
   pub headers: Vec<(String, Slice)>,
+  pub version: u8,
   pub method: Slice,
 }
 

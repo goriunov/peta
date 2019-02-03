@@ -1,3 +1,4 @@
+use bytes::{BufMut, BytesMut};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::prelude::*;
@@ -7,44 +8,49 @@ use peta::reader;
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
 
-struct BestRequest {}
-
-impl BestRequest {
-  pub fn on_data(self) {}
-  pub fn on_request(self) {}
-
-  // pub fn change(&mut self) {
-  //   self.hello = false;
-  // }
-
-  // pub fn exec(self) -> ResponseFutFunc {
-  //   let when = Instant::now() + Duration::from_millis(10000);
-
-  //   let delay = Delay::new(when)
-  //     .map_err(|e| panic!("Delay errored; err={:?}", e))
-  //     .and_then(|_| {
-  //       Ok((
-  //         String::from("HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"),
-  //         self,
-  //       ))
-  //     });
-
-  //   Box::new(delay)
-  //   // Box::new(futures::future::ok((
-  //   //   String::from("HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"),
-  //   //   self,
-  //   // )))
-  // }
+struct Home {
+  pub req: Option<peta::request::Request>,
+  pub res: peta::response::Response,
 }
 
-pub type ResponseFutFunc = Box<dyn Future<Item = (String, BestRequest), Error = ()> + Send + Sync>;
+impl Home {
+  pub fn on_data(mut self, writer: Writer, data: BytesMut, is_last: bool) -> ResponseFut {
+    if is_last {
+      self.res.body_str("Socket is completed");
+      return Box::new(
+        self
+          .res
+          .write(writer)
+          .map_err(|e| println!("Global Error is: {}", e))
+          .map(|writer| (writer, self)),
+      );
+    }
 
-pub type ResponseFut =
-  Box<dyn Future<Item = tokio::io::WriteHalf<tokio::net::TcpStream>, Error = ()> + Send + Sync>;
+    // read next part of data
+    Box::new(futures::future::ok((writer, self)))
+  }
+
+  pub fn on_request(mut self, writer: Writer, req: peta::request::Request) -> ResponseFut {
+    self.req = Some(req);
+    self.res.status("200 OK");
+
+    Box::new(futures::future::ok((writer, self)))
+  }
+}
+
+type Writer = tokio::io::WriteHalf<tokio::net::TcpStream>;
+
+type ResponseFut = Box<dyn Future<Item = (Writer, Home), Error = ()> + Send + Sync>;
+
+// type ResponseFut = Box<
+//   dyn Future<Item = (tokio::io::WriteHalf<tokio::net::TcpStream>, Home), Error = ()> + Send + Sync,
+// >;
 
 fn main() {
   let mut runtime = tokio::runtime::current_thread::Runtime::new().unwrap();
   let addr = "127.0.0.1:3000".parse().unwrap();
+
+  // router.get("/hello");
 
   let listener = TcpListener::bind(&addr).expect("unable to bind TCP listener");
 
@@ -53,66 +59,26 @@ fn main() {
     .map_err(|e| eprintln!("accept failed = {:?}", e))
     .for_each(move |sock| {
       let (read, write) = sock.split();
-      let item = 0;
-
-      // let req = BestRequest { hello: false };
-
-      // let cb = || {
-      //   let index = 0;
-      //   println!("Index {}", index);
-
-      //   // return Box::new(futures::future::ok(write).and_then(|a| Ok(a)));
-      // };
-
-      // let cb = Arc::new(cb).clone();
-
-      // let request = {
-      //   on_chunk: || {}
-      // }
+      let best_req = Home {
+        req: None,
+        res: peta::response::Response::new(),
+      };
 
       let reader = reader::Reader::new(read)
         .map_err(|e| println!("Global Error is: {}", e))
-        .fold(write, move |write, state| -> ResponseFut {
-          let mut is_ready = false;
-
+        .fold((write, best_req), move |(write, best_req), state| {
           match state {
             reader::ReturnType::Data(data, is_last) => {
-              // request is completed
-              if is_last {
-                return Box::new(
-                  tokio::io::write_all(write, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
-                    .map_err(|e| println!("Global Error is: {}", e))
-                    .and_then(|(a, b)| Ok(a))
-                    .map(|a| a),
-                );
-                // dbg!(data);
-              }
+              return best_req.on_data(write, data, is_last);
             }
             reader::ReturnType::Request(req) => {
-              // dbg!(&req.data);
-              is_ready = true;
-              // futures::future::ok(write)
+              return best_req.on_request(write, req);
             }
-          };
+          }
 
-          return Box::new(futures::future::ok(write));
-          // println!("Hit here");
-          // if is_ready {
-          // return Box::new(
-          // return Box::new(
-          //   tokio::io::write_all(write, &"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n"[..])
-          //     .map_err(|e| println!("Global Error is: {}", e))
-          //     .and_then(|(a, b)| Ok(a))
-          //     .map(|a| a),
-          // );
-          // );
-          // }
-          // togther.1.change();
-          // (cb)(&mut write)
+          // continue looping
+          // return Box::new(futures::future::ok((write, best_req)));
 
-          // Box::new(futures::future::ok(togther).and_then(|a| Ok(a)))
-
-          // futures::future::ok(item)
           // let mut when = Instant::now() + Duration::from_millis(2000);
 
           // if item == 0 {
