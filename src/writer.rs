@@ -5,16 +5,22 @@ use bytes::BytesMut;
 use futures::try_ready;
 use tokio::prelude::*;
 
-pub struct WriteAll<A> {
-  state: State<A>,
+use super::response;
+
+pub struct WriteAll {
+  state: State,
 }
 
-enum State<A> {
-  Writing { a: A, buf: BytesMut, pos: usize },
+enum State {
+  Writing {
+    a: response::Response,
+    buf: BytesMut,
+    pos: usize,
+  },
   Empty,
 }
 
-pub fn write_all<A: AsyncWrite>(a: A, res: BytesMut) -> WriteAll<A> {
+pub fn write_all(a: response::Response, res: BytesMut) -> WriteAll {
   WriteAll {
     state: State::Writing {
       a,
@@ -24,11 +30,11 @@ pub fn write_all<A: AsyncWrite>(a: A, res: BytesMut) -> WriteAll<A> {
   }
 }
 
-impl<A: AsyncWrite> Future for WriteAll<A> {
-  type Item = A;
+impl Future for WriteAll {
+  type Item = response::Response;
   type Error = io::Error;
 
-  fn poll(&mut self) -> Poll<A, io::Error> {
+  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
     match self.state {
       State::Writing {
         ref mut a,
@@ -36,7 +42,7 @@ impl<A: AsyncWrite> Future for WriteAll<A> {
         ref mut pos,
       } => {
         while *pos < buf.len() {
-          let n = try_ready!(a.poll_write(&buf[*pos..]));
+          let n = try_ready!(a.writer.poll_write(&buf[*pos..]));
           *pos += n;
           if n == 0 {
             return Err(io::Error::new(

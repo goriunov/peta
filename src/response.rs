@@ -1,35 +1,25 @@
 use bytes::{BufMut, BytesMut};
-use tokio::prelude::*;
 
-use super::date;
 use super::writer;
+use super::date;
 
-pub enum ResponseState {
-  Chunk,
-  Completed,
-}
+type Writer = tokio::io::WriteHalf<tokio::net::TcpStream>;
 
 pub struct Response {
-  pub chunked: bool,
-  pub completed: bool,
+  pub(crate) writer: Writer,
   body: Vec<u8>,
   status: &'static str,
   headers: Vec<(&'static str, &'static str)>,
 }
 
 impl Response {
-  pub fn new() -> Response {
+  pub fn new(writer: Writer) -> Response {
     Response {
-      chunked: false,
-      completed: false,
+      writer,
       body: Vec::with_capacity(0),
       status: "",
       headers: Vec::with_capacity(50),
     }
-  }
-
-  pub fn is_completed(&self) -> bool {
-    self.completed
   }
 
   pub fn status(&mut self, status: &'static str) {
@@ -48,7 +38,7 @@ impl Response {
     self.body = body.as_bytes().to_vec();
   }
 
-  pub fn write<S: AsyncWrite>(&mut self, writer: S) -> writer::WriteAll<S> {
+  pub fn write(self) -> writer::WriteAll {
     // write all data together
     let mut buf = BytesMut::with_capacity(4096);
 
@@ -82,49 +72,7 @@ impl Response {
     }
 
     // write to socket
-    self.completed = true;
-    writer::write_all(writer, buf)
-  }
-
-  // will be used to write chunks
-  pub fn write_chunk<S: AsyncWrite>(&mut self, writer: S, is_last: bool) -> writer::WriteAll<S> {
-    let mut buf = BytesMut::with_capacity(4096);
-
-    if !self.chunked {
-      self.chunked = true;
-
-      push(&mut buf, b"HTTP/1.1 ");
-      push(&mut buf, self.status.as_bytes());
-      push(&mut buf, b"\r\n");
-
-      // write headers
-      for val in &self.headers {
-        push(&mut buf, val.0.as_bytes());
-        push(&mut buf, b": ");
-        push(&mut buf, val.1.as_bytes());
-        push(&mut buf, b"\r\n");
-      }
-      // set date header
-      date::set_date_header(&mut buf);
-
-      push(&mut buf, b"transfer-encoding: chunked\r\n\r\n");
-    }
-
-    let body_len = self.body.len();
-    push(&mut buf, format!("{:x}", body_len).as_bytes());
-    push(&mut buf, b"\r\n");
-    push(&mut buf, self.body.as_slice());
-    push(&mut buf, b"\r\n");
-
-    if is_last {
-      push(&mut buf, b"0\r\n\r\n");
-      self.chunked = false;
-      self.completed = true;
-    }
-
-    dbg!(&buf);
-
-    writer::write_all(writer, buf)
+    writer::write_all(self, buf)
   }
 }
 
