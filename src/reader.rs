@@ -1,4 +1,4 @@
-use bytes::{BufMut, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use tokio::prelude::*;
 
 use super::request;
@@ -78,6 +78,7 @@ where
                 let mut headers = [httparse::EMPTY_HEADER; 50];
                 let mut r = httparse::Request::new(&mut headers);
 
+                // dbg!(&self.buffer);
                 let status = r.parse(&self.buffer).map_err(|e| {
                   std::io::Error::new(std::io::ErrorKind::Other, "Could not parse request")
                 });
@@ -89,14 +90,15 @@ where
 
                     for header in r.headers.iter() {
                       let header_name = header.name.to_lowercase();
-
-                      if header_name == "transfer-ecoding" {
+                      if header_name == "transfer-encoding" {
+                        self.read_state = ReaderState::Chunk;
                         // we need to check if it is actually chunked below thing is not right
                         // self.chunked = true
                       }
 
                       if header_name == "content-length" {
-                        // self.state = ReaderState::Body;
+                        // this is incorrect way to assign body state
+                        self.read_state = ReaderState::Body;
                         self.body_size = std::str::from_utf8(header.value)
                           .expect("Wrong value in header")
                           .parse::<usize>()
@@ -106,13 +108,25 @@ where
                       headers.push((header_name, self.to_slice(header.value)));
                     }
 
-                    self.read_state = ReaderState::Body;
+                    // if let ReaderState::Chunk != self.read_state {
+                    //   self.read_state = ReaderState::Body;
+                    // }
+                    // match self.read_state {
+                    //   ReaderState::Headers => {
+                    //     // ReaderState::Body;
+                    //     // should be different to read till socket is closed
+                    //   }
+                    //   ReaderState::Body => {}
+                    //   ReaderState::Chunk => {}
+                    // }
 
-                    // request is ready
+                    // request is ready reset all values
                     req.headers = headers;
                     req.method = self.to_slice(r.method.unwrap().as_bytes());
                     req.version = r.version.unwrap();
                     req.request_raw = self.buffer.split_to(amt);
+                    req.data = BytesMut::with_capacity(0);
+                    req.is_last = false;
 
                     // emit data to the client
                     let fut = unsafe { (*self.router_raw_pointer).find((req, res)) };
@@ -127,7 +141,67 @@ where
                   }
                 }
               }
-              ReaderState::Chunk => {}
+              ReaderState::Chunk => {
+                // do proper chunk parsing
+                if self.buffer.len() > 0 {
+                  match httparse::parse_chunk_size(&self.buffer) {
+                    Ok(httparse::Status::Complete((start, length))) => {
+                      // need to do optimization of the  chunks
+                      let mut len = start as u64 + length + 2;
+                      if length == 0 {
+                        len = start as u64 + length;
+                      }
+
+                      // make sure that we have enough data to process
+                      if self.buffer.len() as u64 >= len {
+                        match std::mem::replace(&mut req.on_data, request::OnData::Empty) {
+                          request::OnData::Function(f) => {
+                            // this is very dangerous need proper optimization
+                            self.buffer.advance(start);
+                            let data = self.buffer.split_to(length as usize);
+
+                            if self.buffer.len() == 7
+                              && self.buffer == BytesMut::from("\r\n0\r\n\r\n")
+                            {
+                              self.buffer.advance(7);
+                              self.read_state = ReaderState::Headers;
+                              req.is_last = true;
+                            } else {
+                              self.buffer.advance(2);
+                            }
+
+                            // this is very slow
+                            req.data.unsplit(data);
+
+                            // if 0 length then it is last chunk
+                            if length == 0 {
+                              self.read_state = ReaderState::Headers;
+                              req.is_last = true;
+                            }
+
+                            let fut = Box::new((f)((req, res)).and_then(|(mut req, res)| {
+                              req.on_data = request::OnData::Function(f);
+                              Ok((req, res))
+                            }));
+
+                            let fut = fut.into_future();
+                            self.future_state = FutureProcessState::Processing(fut);
+                            break;
+                          }
+                          request::OnData::Empty => {}
+                        }
+                      }
+                    }
+                    Ok(httparse::Status::Partial) => {}
+                    Err(e) => {
+                      return Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Could not parse chunk",
+                      ));
+                    }
+                  };
+                }
+              }
               ReaderState::Body => {
                 if self.buffer.len() >= self.body_size {
                   let data = self.buffer.split_to(self.body_size);

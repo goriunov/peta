@@ -35,7 +35,11 @@ impl Request {
     }
   }
 
-  pub fn data(&mut self) -> BytesMut {
+  pub fn data(&self) -> &BytesMut {
+    &self.data
+  }
+
+  pub fn data_take(&mut self) -> BytesMut {
     self.data.take()
   }
 

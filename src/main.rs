@@ -13,11 +13,13 @@ fn main() {
     res.status("200 OK");
     res.body_str("Hello world");
 
-    req.on_data(|(mut req, res)| {
-      // println!("Data is going in req");
+    req.on_data(|(req, res)| {
+      println!("Data is going in req");
+      // data will be automatically joined in one buff (you can use data_take() to take all data for this particular part)
       let data = req.data();
       dbg!(data);
       if req.is_last() {
+        dbg!("Is last");
         //   // write output to the client
         return Box::new(res.write().map(|res| ((req, res))));
       }
