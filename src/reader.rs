@@ -98,7 +98,7 @@ where
 
                       if header_name == "content-length" {
                         // this is incorrect way to assign body state
-                        self.read_state = ReaderState::Body;
+                        // self.read_state = ReaderState::Body;
                         self.body_size = std::str::from_utf8(header.value)
                           .expect("Wrong value in header")
                           .parse::<usize>()
@@ -107,6 +107,8 @@ where
 
                       headers.push((header_name, self.to_slice(header.value)));
                     }
+
+                    self.read_state = ReaderState::Body;
 
                     // if let ReaderState::Chunk != self.read_state {
                     //   self.read_state = ReaderState::Body;
@@ -161,6 +163,7 @@ where
                             let data = self.buffer.split_to(length as usize);
 
                             if self.buffer.len() == 7
+                            // need to optimize compare string
                               && self.buffer == BytesMut::from("\r\n0\r\n\r\n")
                             {
                               self.buffer.advance(7);

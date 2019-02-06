@@ -11,17 +11,22 @@ fn main() {
 
   let router = peta::router::Router::new(|(mut req, mut res)| {
     res.status("200 OK");
-    res.body_str("Hello world");
+    // res.body_str("Hello world");
 
     req.on_data(|(req, res)| {
-      println!("Data is going in req");
+      // println!("Data is going in req");
       // data will be automatically joined in one buff (you can use data_take() to take all data for this particular part)
       let data = req.data();
-      dbg!(data);
+      // dbg!(data);
       if req.is_last() {
-        dbg!("Is last");
+        // dbg!("Is last");
         //   // write output to the client
-        return Box::new(res.write().map(|res| ((req, res))));
+        // let fut = res.write("Hello".as_bytes().to_vec())
+        // .and_then(|res| res.write(" World".as_bytes().to_vec()))
+        // .and_then(|res| res.end("!".as_bytes().to_vec()))
+        let fut = res.end("Hello world !".as_bytes())
+        .map(|res| ((req, res)));
+        return Box::new(fut);
       }
 
       // waiting for next part of the data as it was not last
