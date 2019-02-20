@@ -6,6 +6,7 @@ enum ProcessState {
   Ready((request::Request, response::Response)),
 }
 
+#[derive(Debug, PartialEq)]
 enum ReadState {
   Request,
   Chunk,
@@ -29,12 +30,10 @@ impl<S: AsyncRead> Reader<S> {
     }
   }
 
-  // main need to rethink this one
-
-  // pub fn to_slice(&self, a: &[u8]) -> Slice {
-  // let start = a.as_ptr() as usize - self.buffer.as_ptr() as usize;
-  // (start, start + a.len())
-  // }
+  pub fn to_slice(&self, a: &[u8]) -> Slice {
+    let start = a.as_ptr() as usize - self.buffer.as_ptr() as usize;
+    (start, start + a.len())
+  }
 }
 
 impl<S: AsyncRead> Future for Reader<S> {
@@ -68,7 +67,27 @@ impl<S: AsyncRead> Future for Reader<S> {
                 // parse available data
                 match r.parse(&self.buffer) {
                   Ok(httparse::Status::Partial) => {} // continue reading (not enough data)
-                  Ok(httparse::Status::Complete(amt)) => {}
+                  Ok(httparse::Status::Complete(amt)) => {
+                    let mut headers: Vec<(String, Slice)> = Vec::with_capacity(r.headers.len());
+
+                    for header in r.headers.iter() {
+                      let header_name = header.name.to_lowercase();
+
+                      if self.read_state != ReadState::Chunk {
+                        if header_name == "transfer-encoding" {
+                          // we may have got chunk
+                          // check if we actually have chunk
+                          self.read_state = ReadState::Chunk;
+                        } else if header_name == "content-length" {
+                          self.read_state = ReadState::Body;
+                          // we have got content length
+                          // try and pars string
+                        }
+                      }
+
+                      headers.push((header_name, self.to_slice(header.value)));
+                    }
+                  }
                   Err(e) => {
                     // we probably need to close socket and send error response to the client
                     return Err(std::io::Error::new(
@@ -80,7 +99,22 @@ impl<S: AsyncRead> Future for Reader<S> {
               }
             }
 
-            // read from socket
+            if !self.buffer.has_remaining_mut() {
+              self.buffer.reserve(1024);
+            }
+
+            match self.socket.read_buf(&mut self.buffer)? {
+              // 0 socket is closed :)
+              Async::Ready(0) => return Ok(Async::Ready((req, res))),
+              Async::Ready(_) => {
+                // continue reading data
+              }
+              Async::NotReady => {
+                // nothing has been read set our state to ready to process new data in next wake up
+                self.process_state = ProcessState::Ready((req, res));
+                return Ok(Async::NotReady);
+              }
+            }
           }
         }
       }
