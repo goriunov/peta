@@ -10,13 +10,16 @@ fn main() {
   let listener = TcpListener::bind(&addr).expect("unable to bind TCP listener");
   // peta::hello()
 
-  let router = peta::router::Router::new(|(mut req, mut res)| {
-    dbg!("Got in here");
+  let router = peta::router::Router::new(|(mut req, res)| {
+    // dbg!("Got in here");
     req.on_data(|(req, res)| {
       // handle rest
       dbg!(&req.data);
-      Box::new(futures::future::ok((req, res)))
+      Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+      // Box::new(futures::future::ok((req, res)))
     });
+
+    // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
 
     return Box::new(futures::future::ok((req, res)));
   });
@@ -25,8 +28,7 @@ fn main() {
     .incoming()
     .map_err(|e| eprintln!("accept failed = {:?}", e))
     .for_each(move |sock| {
-      let (read, write) = sock.split();
-      let reader = peta::reader::Reader::new(read, &router)
+      let reader = peta::reader::Reader::new(sock.split(), &router)
         .map_err(|e| println!("{}", e))
         .map(|_| {
           println!("Socket closed");

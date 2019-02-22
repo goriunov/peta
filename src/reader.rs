@@ -6,16 +6,16 @@ enum ProcessState {
   Ready(ReqResTuple),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 enum ReadState {
   Request,
   Chunk,
   Body,
 }
 
-pub struct Reader<S, T> {
+pub struct Reader<T> {
   req_func: OnData,
-  socket: S,
+  socket: ReadHalf,
   buffer: BytesMut,
   body_size: usize,
   read_state: ReadState,
@@ -23,12 +23,11 @@ pub struct Reader<S, T> {
   process_state: ProcessState,
 }
 
-impl<S, T> Reader<S, T>
+impl<T> Reader<T>
 where
   T: RouterSearch,
-  S: AsyncRead,
 {
-  pub fn new(socket: S, router: &T) -> Reader<S, T> {
+  pub fn new((socket, write_socket): (ReadHalf, WriteHalf), router: &T) -> Reader<T> {
     Reader {
       socket,
       req_func: OnData::Empty,
@@ -36,7 +35,10 @@ where
       body_size: 0,
       router_raw: router as *const T,
       read_state: ReadState::Request,
-      process_state: ProcessState::Ready((request::Request::new(), response::Response::new())),
+      process_state: ProcessState::Ready((
+        request::Request::new(),
+        response::Response::new(write_socket),
+      )),
     }
   }
 
@@ -46,10 +48,9 @@ where
   }
 }
 
-impl<S, T> Future for Reader<S, T>
+impl<T> Future for Reader<T>
 where
   T: RouterSearch,
-  S: AsyncRead,
 {
   type Item = ReqResTuple;
   type Error = std::io::Error;
@@ -85,15 +86,12 @@ where
                   let data = self.buffer.split_to(self.body_size);
                   self.read_state = ReadState::Request;
                   self.body_size = 0;
-
-                  match std::mem::replace(&mut self.req_func, OnData::Empty) {
+                  match &self.req_func {
                     OnData::Function(f) => {
                       req.data = data;
                       let fut = (f)((req, res));
                       let fut = fut.into_future();
                       self.process_state = ProcessState::Processing(fut);
-                      // return function back to the instance
-                      self.req_func = OnData::Function(f);
                       break;
                     }
                     OnData::Empty => {}

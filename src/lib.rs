@@ -3,10 +3,12 @@ pub use bytes::{BufMut, BytesMut};
 pub use tokio::prelude::*;
 
 // modules (for now public)
+pub mod date;
 pub mod reader;
 pub mod request;
 pub mod response;
 pub mod router;
+pub mod writer;
 
 // common types
 pub(crate) type Slice = (usize, usize);
