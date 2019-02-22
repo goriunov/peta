@@ -3,7 +3,7 @@ use super::*;
 enum ProcessState {
   Empty,
   Processing(ReturnFuture),
-  Ready((request::Request, response::Response)),
+  Ready(ReqResTuple),
 }
 
 #[derive(Debug, PartialEq)]
@@ -13,18 +13,28 @@ enum ReadState {
   Body,
 }
 
-pub struct Reader<S> {
+pub struct Reader<S, T> {
+  req_func: OnData,
   socket: S,
   buffer: BytesMut,
+  body_size: usize,
   read_state: ReadState,
+  router_raw: *const T,
   process_state: ProcessState,
 }
 
-impl<S: AsyncRead> Reader<S> {
-  pub fn new(socket: S) -> Reader<S> {
+impl<S, T> Reader<S, T>
+where
+  T: RouterSearch,
+  S: AsyncRead,
+{
+  pub fn new(socket: S, router: &T) -> Reader<S, T> {
     Reader {
       socket,
+      req_func: OnData::Empty,
       buffer: BytesMut::with_capacity(1024),
+      body_size: 0,
+      router_raw: router as *const T,
       read_state: ReadState::Request,
       process_state: ProcessState::Ready((request::Request::new(), response::Response::new())),
     }
@@ -36,8 +46,12 @@ impl<S: AsyncRead> Reader<S> {
   }
 }
 
-impl<S: AsyncRead> Future for Reader<S> {
-  type Item = (request::Request, response::Response);
+impl<S, T> Future for Reader<S, T>
+where
+  T: RouterSearch,
+  S: AsyncRead,
+{
+  type Item = ReqResTuple;
   type Error = std::io::Error;
 
   fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -47,19 +61,48 @@ impl<S: AsyncRead> Future for Reader<S> {
         ProcessState::Processing(mut fut) => {
           // poll future
           match fut.poll()? {
-            Async::Ready(v) => self.process_state = ProcessState::Ready(v),
+            Async::Ready((mut req, res)) => {
+              // fetch function from request in to the reader for easier execution
+              if req.has_on_data {
+                req.has_on_data = false;
+                self.req_func = std::mem::replace(&mut req.on_data, OnData::Empty);
+              }
+
+              self.process_state = ProcessState::Ready((req, res))
+            }
             Async::NotReady => {
               self.process_state = ProcessState::Processing(fut);
               return Ok(Async::NotReady);
             }
           }
         }
-        ProcessState::Ready((req, res)) => {
+        ProcessState::Ready((mut req, res)) => {
           // do main parse logic
           loop {
             match self.read_state {
-              ReadState::Body => {}
-              ReadState::Chunk => {}
+              ReadState::Body => {
+                if self.buffer.len() >= self.body_size {
+                  let data = self.buffer.split_to(self.body_size);
+                  self.read_state = ReadState::Request;
+                  self.body_size = 0;
+
+                  match std::mem::replace(&mut self.req_func, OnData::Empty) {
+                    OnData::Function(f) => {
+                      req.data = data;
+                      let fut = (f)((req, res));
+                      let fut = fut.into_future();
+                      self.process_state = ProcessState::Processing(fut);
+                      // return function back to the instance
+                      self.req_func = OnData::Function(f);
+                      break;
+                    }
+                    OnData::Empty => {}
+                  }
+                }
+              }
+              ReadState::Chunk => {
+                // handle chunks
+              }
               ReadState::Request => {
                 let mut headers = [httparse::EMPTY_HEADER; 50];
                 let mut r = httparse::Request::new(&mut headers);
@@ -80,16 +123,28 @@ impl<S: AsyncRead> Future for Reader<S> {
                           self.read_state = ReadState::Chunk;
                         } else if header_name == "content-length" {
                           self.read_state = ReadState::Body;
-                          // we have got content length
-                          // try and pars string
+
+                          // we need to handle body errors properly
+                          self.body_size = std::str::from_utf8(header.value)
+                            .expect("Wrong value in header")
+                            .parse::<usize>()
+                            .expect("Could not parse usize");
                         }
                       }
 
                       headers.push((header_name, self.to_slice(header.value)));
                     }
+
+                    self.buffer.split_to(amt);
+                    // everything is parsed we can process
+
+                    let fut = unsafe { (*self.router_raw).find((req, res)) };
+                    let fut = fut.into_future();
+                    self.process_state = ProcessState::Processing(fut);
+                    break;
                   }
-                  Err(e) => {
-                    // we probably need to close socket and send error response to the client
+                  Err(_e) => {
+                    // we need to close socket and send error response to the client
                     return Err(std::io::Error::new(
                       std::io::ErrorKind::Other,
                       "Could not parse request",
@@ -106,9 +161,8 @@ impl<S: AsyncRead> Future for Reader<S> {
             match self.socket.read_buf(&mut self.buffer)? {
               // 0 socket is closed :)
               Async::Ready(0) => return Ok(Async::Ready((req, res))),
-              Async::Ready(_) => {
-                // continue reading data
-              }
+              // We have some data need to check it in next iter
+              Async::Ready(_) => {}
               Async::NotReady => {
                 // nothing has been read set our state to ready to process new data in next wake up
                 self.process_state = ProcessState::Ready((req, res));
