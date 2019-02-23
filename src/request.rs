@@ -1,16 +1,27 @@
 use super::*;
 
 pub struct Request {
-  pub(crate) has_on_data: bool,
+  // internal use only
   pub(crate) on_data: OnData,
-  pub data: BytesMut,
+  pub(crate) has_data_function: bool,
+  pub(crate) data: BytesMut,
+  is_last: bool,
+  headers: Vec<(String, Slice)>,
+  request_data: BytesMut,
+  version: u8,
+  method: Slice,
 }
 
 impl Request {
   pub fn new() -> Request {
     Request {
-      has_on_data: false,
+      has_data_function: false,
+      is_last: false,
+      method: (0, 0),
+      version: 0,
       on_data: OnData::Empty,
+      headers: Vec::with_capacity(0),
+      request_data: BytesMut::with_capacity(0),
       data: BytesMut::with_capacity(0),
     }
   }
@@ -19,7 +30,33 @@ impl Request {
   where
     F: Fn(ReqResTuple) -> ReturnFuture + Send + Sync + 'static,
   {
-    self.has_on_data = true;
+    self.has_data_function = true;
     self.on_data = OnData::Function(Box::new(func));
+  }
+
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///  Internal use function for request initialization
+  pub(crate) fn init(&mut self, version: u8, method: Slice, request_data: BytesMut) {
+    self.data.clear();
+    self.method = method;
+    self.version = version;
+    self.is_last = false;
+    self.request_data = request_data;
+  }
+
+  pub(crate) fn add_header(&mut self, header: (String, Slice)) {
+    // handle header addition
+    self.headers.push(header);
+  }
+
+  pub(crate) fn reset_headers(&mut self, len: usize) {
+    self.headers.clear();
+    if self.headers.capacity() < len {
+      self.headers.reserve(len);
+    }
   }
 }
