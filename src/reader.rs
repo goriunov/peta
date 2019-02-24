@@ -131,7 +131,10 @@ where
                         }
                       }
 
-                      req.add_header((header_name, self.to_slice(header.value)));
+                      req.add_header(
+                        header_name,
+                        String::from_utf8_lossy(header.value).into_owned(),
+                      );
                     }
 
                     self.req_func = OnData::Empty;

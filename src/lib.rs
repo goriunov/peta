@@ -1,5 +1,6 @@
 // common imports
 pub use bytes::{BufMut, BytesMut};
+pub use hashbrown;
 pub use tokio::prelude::*;
 
 // modules (for now public)
