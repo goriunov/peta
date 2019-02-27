@@ -6,7 +6,7 @@ pub struct Request {
   pub(crate) has_data_function: bool,
   pub(crate) data: BytesMut,
   is_last: bool,
-  headers: hashbrown::HashMap<String, String>,
+  headers: hashbrown::HashMap<String, Vec<u8>>,
   request_data: BytesMut,
   version: u8,
   method: Slice,
@@ -48,7 +48,7 @@ impl Request {
     self.request_data = request_data;
   }
 
-  pub(crate) fn add_header(&mut self, name: String, value: String) {
+  pub(crate) fn add_header(&mut self, name: String, value: Vec<u8>) {
     // handle header addition
     self.headers.insert(name, value);
   }

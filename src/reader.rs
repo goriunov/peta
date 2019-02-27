@@ -131,12 +131,15 @@ where
                         }
                       }
 
-                      req.add_header(
-                        header_name,
-                        String::from_utf8_lossy(header.value).into_owned(),
-                      );
+                      let mut buf = Vec::with_capacity(header.value.len());
+                      unsafe {
+                        // we can do unsafe copy
+                        buf.bytes_mut()[..header.value.len()].copy_from_slice(header.value)
+                      };
+                      req.add_header(header_name, buf);
                     }
 
+                    // empty previous function
                     self.req_func = OnData::Empty;
 
                     let method = self.to_slice(r.method.unwrap().as_bytes());

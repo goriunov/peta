@@ -17,7 +17,7 @@ pub(crate) type ReadHalf = tokio::io::ReadHalf<tokio::net::TcpStream>;
 pub(crate) type WriteHalf = tokio::io::WriteHalf<tokio::net::TcpStream>;
 pub(crate) type ReqResTuple = (request::Request, response::Response);
 pub(crate) type ReturnFuture =
-  Box<dyn Future<Item = (ReqResTuple), Error = std::io::Error> + Send + Sync>;
+  Box<dyn Future<Item = ReqResTuple, Error = std::io::Error> + Send + Sync>;
 
 pub enum OnData {
   Empty,
