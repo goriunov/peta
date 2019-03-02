@@ -94,7 +94,7 @@ where
                       self.process_state = ProcessState::Processing(fut.into_future());
                       break;
                     }
-                    OnData::Empty => {} // we can continue to the next loop
+                    OnData::Empty => {} // process
                   }
                 }
               }
@@ -111,7 +111,7 @@ where
                   Ok(httparse::Status::Complete(amt)) => {
                     req.reset_headers(r.headers.len());
 
-                    // always assume that we have data (even if there is no)
+                    // always assume that we have data (even if there is no data)
                     self.read_state = ReadState::Body;
 
                     for header in r.headers.iter() {
