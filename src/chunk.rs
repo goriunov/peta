@@ -8,6 +8,7 @@ pub enum Status {
 
 pub struct Chunk {}
 
+// TODO: implement proper parsing with validation the end of the request
 impl Chunk {
   // this function modifies array
   pub fn parse(buffer: &mut BytesMut) -> Result<Status, std::io::Error> {
@@ -77,15 +78,20 @@ impl Chunk {
       return Ok(Status::Last);
     }
 
+    // dbg!(buffer.len());
+    // dbg!(size + pos + 2);
+
     // TODO: if length is not enough return error
-    if buffer.len() - pos < size {
+    if buffer.len() < size + pos + 2 {
       // TODO: we need to return not ready
       return Ok(Status::NotEnoughData);
     }
 
     // remove length data from buffer
-    buffer.advance(pos + 2);
-    Ok(Status::Chunk(buffer.split_to(size)))
+    buffer.advance(pos);
+    let data = buffer.split_to(size);
+    buffer.advance(2);
+    Ok(Status::Chunk(data))
 
     // handle actual split and return bytes buffer
   }

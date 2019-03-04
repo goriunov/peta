@@ -4,7 +4,7 @@ pub struct Request {
   // internal use only
   pub(crate) on_data: OnData,
   pub(crate) has_data_function: bool,
-  pub(crate) data: BytesMut,
+  pub data: BytesMut,
   is_last: bool,
   headers: hashbrown::HashMap<String, Vec<u8>>,
   request_data: BytesMut,
