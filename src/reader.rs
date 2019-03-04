@@ -99,7 +99,27 @@ where
                 }
               }
               ReadState::Chunk => {
-                //TODO: handle chunks
+                if self.buffer.len() > 0 {
+                  //TODO: handle chunks
+                  match chunk::Chunk::parse(&mut self.buffer)? {
+                    chunk::Status::Chunk(data) => {
+                      match &self.req_func {
+                        OnData::Function(f) => {
+                          req.data.unsplit(data);
+                          let fut = (f)((req, res));
+                          self.process_state = ProcessState::Processing(fut.into_future());
+                          break;
+                        }
+                        OnData::Empty => {} // process
+                      }
+                    }
+                    chunk::Status::Last => {
+                      // end this implementation
+                      self.read_state = ReadState::Request;
+                    }
+                    chunk::Status::NotEnoughData => {}
+                  };
+                }
               }
               ReadState::Request => {
                 let mut headers = [httparse::EMPTY_HEADER; 50];

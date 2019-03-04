@@ -19,9 +19,9 @@ fn main() {
     //   //   // Box::new(futures::future::ok((req, res)))
     // });
 
-    Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+    // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
 
-    // return Box::new(futures::future::ok((req, res)));
+    return Box::new(futures::future::ok((req, res)));
   });
 
   let server = listener
