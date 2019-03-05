@@ -18,6 +18,7 @@ fn main() {
 
       if req.is_last {
         dbg!("The last one");
+        return Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))));
       }
       // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
       Box::new(futures::future::ok((req, res)))
