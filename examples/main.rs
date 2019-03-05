@@ -12,21 +12,21 @@ fn main() {
 
   let router = peta::router::Router::new(|(mut req, res)| {
     // dbg!("Got in here");
-    req.on_data(|(req, res)| {
-      //   // handle rest
-      dbg!(&req.data);
+    // req.on_data(|(req, res)| {
+    //   //   // handle rest
+    //   // dbg!(&req.data);
 
-      if req.is_last {
-        dbg!("The last one");
-        return Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))));
-      }
-      // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
-      Box::new(futures::future::ok((req, res)))
-    });
+    //   if req.is_last {
+    //     // dbg!("The last one");
+    //     return Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))));
+    //   }
+    //   // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+    //   Box::new(futures::future::ok((req, res)))
+    // });
 
-    // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+    Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
 
-    return Box::new(futures::future::ok((req, res)));
+    // return Box::new(futures::future::ok((req, res)));
   });
 
   let server = listener

@@ -82,25 +82,24 @@ where
             match self.read_state {
               ReadState::Body => {
                 if self.buffer.len() >= self.body_size {
-                  // reset state and emit all data
-                  let data = self.buffer.split_to(self.body_size);
-                  self.body_size = 0;
+                  // reset state and emit all received data to user
                   self.read_state = ReadState::Request;
 
                   match &self.req_func {
                     OnData::Function(f) => {
-                      req.data = data;
+                      req.data = self.buffer.split_to(self.body_size);
+                      req.is_last = true;
                       let fut = (f)((req, res));
                       self.process_state = ProcessState::Processing(fut.into_future());
                       break;
                     }
-                    OnData::Empty => {} // process
+                    OnData::Empty => self.buffer.advance(self.body_size), // free data
                   }
                 }
               }
               ReadState::Chunk => {
                 if self.buffer.len() > 0 {
-                  match chunk::Chunk::parse(&mut self.buffer)? {
+                  match chunk::parse(&mut self.buffer)? {
                     chunk::ParseStatus::Chunk(is_last, data) => {
                       if is_last {
                         req.is_last = is_last;
@@ -114,10 +113,10 @@ where
                           self.process_state = ProcessState::Processing(fut.into_future());
                           break;
                         }
-                        OnData::Empty => {} // ignore
+                        OnData::Empty => {} // we can skip this data
                       }
                     }
-                    chunk::ParseStatus::NotEnoughData => {} // ignore
+                    chunk::ParseStatus::NotEnoughData => {} // wait for more data
                   };
                 }
               }
@@ -129,6 +128,8 @@ where
                 match r.parse(&self.buffer) {
                   Ok(httparse::Status::Partial) => {} // continue reading (not enough data)
                   Ok(httparse::Status::Complete(amt)) => {
+                    // we need to reset old body size and headers
+                    self.body_size = 0;
                     req.reset_headers(r.headers.len());
 
                     // always assume that we have data (even if there is no data)
@@ -153,7 +154,7 @@ where
 
                       let mut buf = Vec::with_capacity(header.value.len());
                       unsafe {
-                        // we can do unsafe copy
+                        // we can do unsafe copy here :)
                         buf.bytes_mut()[..header.value.len()].copy_from_slice(header.value)
                       };
                       req.add_header(header_name, buf);
@@ -171,7 +172,6 @@ where
                     break;
                   }
                   Err(_e) => {
-                    //TODO: need to close socket and send error response to the client
                     return Err(std::io::Error::new(
                       std::io::ErrorKind::Other,
                       "Could not parse request",
