@@ -15,6 +15,10 @@ fn main() {
     req.on_data(|(req, res)| {
       //   // handle rest
       dbg!(&req.data);
+
+      if req.is_last {
+        dbg!("The last one");
+      }
       // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
       Box::new(futures::future::ok((req, res)))
     });

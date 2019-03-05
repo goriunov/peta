@@ -102,7 +102,7 @@ where
                 if self.buffer.len() > 0 {
                   //TODO: handle chunks
                   match chunk::Chunk::parse(&mut self.buffer)? {
-                    chunk::Status::Chunk(data) => {
+                    chunk::ParseStatus::Chunk(data) => {
                       match &self.req_func {
                         OnData::Function(f) => {
                           req.data.unsplit(data);
@@ -110,14 +110,28 @@ where
                           self.process_state = ProcessState::Processing(fut.into_future());
                           break;
                         }
-                        OnData::Empty => {} // process
+                        OnData::Empty => {} // ignore
                       }
                     }
-                    chunk::Status::Last => {
+                    chunk::ParseStatus::LastChunk(data) => {
                       // end this implementation
                       self.read_state = ReadState::Request;
+                      match &self.req_func {
+                        OnData::Function(f) => {
+                          req.is_last = true;
+                          match data {
+                            Some(d) => req.data.unsplit(d),
+                            None => {}
+                          };
+
+                          let fut = (f)((req, res));
+                          self.process_state = ProcessState::Processing(fut.into_future());
+                          break;
+                        }
+                        OnData::Empty => {} // ignore
+                      }
                     }
-                    chunk::Status::NotEnoughData => {}
+                    chunk::ParseStatus::NotEnoughData => {} // ignore
                   };
                 }
               }
