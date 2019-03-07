@@ -4,12 +4,12 @@ pub struct Request {
   // internal use only
   pub(crate) on_data: OnData,
   pub(crate) has_data_function: bool,
-  pub data: BytesMut,
-  pub is_last: bool,
-  headers: hashbrown::HashMap<String, Vec<u8>>,
-  request_data: BytesMut,
+  pub(crate) data: BytesMut,
+  pub(crate) is_last: bool,
+  method: String,
   version: u8,
-  method: Slice,
+  request_data: BytesMut,
+  headers: hashbrown::HashMap<String, Vec<u8>>,
 }
 
 impl Request {
@@ -17,12 +17,12 @@ impl Request {
     Request {
       has_data_function: false,
       is_last: false,
-      method: (0, 0),
       version: 0,
       on_data: OnData::Empty,
-      headers: hashbrown::HashMap::with_capacity(0),
-      request_data: BytesMut::with_capacity(0),
-      data: BytesMut::with_capacity(0),
+      method: String::new(),
+      headers: hashbrown::HashMap::new(),
+      request_data: BytesMut::new(),
+      data: BytesMut::new(),
     }
   }
 
@@ -34,13 +34,11 @@ impl Request {
     self.on_data = OnData::Function(Box::new(func));
   }
 
-  ///
-  ///
-  ///
-  ///
-  ///
-  ///  Internal use function for request initialization
-  pub(crate) fn init(&mut self, version: u8, method: Slice, request_data: BytesMut) {
+  pub fn is_last(&self) -> bool {
+    self.is_last
+  }
+
+  pub(crate) fn init(&mut self, version: u8, method: String, request_data: BytesMut) {
     self.data.clear();
     self.method = method;
     self.version = version;

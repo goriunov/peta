@@ -10,7 +10,8 @@ fn main() {
   let listener = TcpListener::bind(&addr).expect("unable to bind TCP listener");
   // peta::hello()
 
-  let router = peta::router::Router::new(|(mut req, res)| {
+  let mut router = peta::router::Router::new();
+  router.get("/", |(mut req, res)| {
     // dbg!("Got in here");
     // req.on_data(|(req, res)| {
     //   //   // handle rest

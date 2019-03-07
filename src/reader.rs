@@ -41,11 +41,6 @@ where
       )),
     }
   }
-
-  pub fn to_slice(&self, a: &[u8]) -> Slice {
-    let start = a.as_ptr() as usize - self.buffer.as_ptr() as usize;
-    (start, start + a.len())
-  }
 }
 
 impl<T> Future for Reader<T>
@@ -163,7 +158,7 @@ where
                     // empty previous function
                     self.req_func = OnData::Empty;
 
-                    let method = self.to_slice(r.method.unwrap().as_bytes());
+                    let method = r.method.unwrap().to_string();
                     let version = r.version.unwrap();
                     req.init(version, method, self.buffer.split_to(amt));
 

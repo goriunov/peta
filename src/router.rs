@@ -1,15 +1,19 @@
 use super::*;
 
 pub struct Router<F> {
-  default: F,
+  default: Option<F>,
 }
 
 impl<F> Router<F> {
-  pub fn new(default: F) -> Router<F>
+  pub fn new() -> Router<F> {
+    Router { default: None }
+  }
+
+  pub fn get(&mut self, _string: &str, default: F)
   where
     F: Fn(ReqResTuple) -> ReturnFuture + Send + Sync,
   {
-    Router { default }
+    self.default = Some(default);
   }
 }
 
@@ -18,6 +22,6 @@ where
   F: Fn(ReqResTuple) -> ReturnFuture + Send + Sync,
 {
   fn find(&self, data: ReqResTuple) -> ReturnFuture {
-    (self.default)(data)
+    (self.default.as_ref().unwrap())(data)
   }
 }

@@ -12,8 +12,6 @@ pub mod response;
 pub mod router;
 pub mod writer;
 
-// common types
-pub(crate) type Slice = (usize, usize);
 pub(crate) type ReadHalf = tokio::io::ReadHalf<tokio::net::TcpStream>;
 pub(crate) type WriteHalf = tokio::io::WriteHalf<tokio::net::TcpStream>;
 pub(crate) type ReqResTuple = (request::Request, response::Response);
