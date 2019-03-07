@@ -13,35 +13,44 @@ fn main() {
   let mut router = peta::router::Router::new();
   router.get("/", |(mut req, res)| {
     // dbg!("Got in here");
-    // req.on_data(|(req, res)| {
-    //   //   // handle rest
-    //   // dbg!(&req.data);
+    req.on_data(|(mut req, res)| {
+      //   //   // handle rest
+      if req.is_last() {
+        // let data = req.data().take();
+        // //     // dbg!("The last one");
+        return Box::new(
+          res
+            .write("Hello world :)".as_bytes())
+            .map(|res| ((req, res))),
+        );
+      }
 
-    //   if req.is_last {
-    //     // dbg!("The last one");
-    //     return Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))));
-    //   }
-    //   // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
-    //   Box::new(futures::future::ok((req, res)))
-    // });
+      // req.data().take();
 
-    Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+      //   // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+      Box::new(futures::future::ok((req, res)))
+    });
 
-    // return Box::new(futures::future::ok((req, res)));
+    // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+
+    return Box::new(futures::future::ok((req, res)));
   });
 
   let server = listener
     .incoming()
     .map_err(|e| eprintln!("accept failed = {:?}", e))
     .for_each(move |sock| {
+      // sock
+      // sock.set_timeout(Duration::from_secs(5));
       let reader = peta::reader::Reader::new(sock.split(), &router)
         .map_err(|e| println!("{}", e))
         .map(|_| {
           println!("Socket closed");
           ()
         });
-
+      
       tokio::runtime::current_thread::spawn(reader);
+
       Ok(())
     });
 

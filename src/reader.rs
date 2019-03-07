@@ -58,8 +58,8 @@ where
           match fut.poll()? {
             Async::Ready((mut req, res)) => {
               // fetch function from request in to the reader for easier execution
-              if req.has_data_function {
-                req.has_data_function = false;
+              if req.has_function {
+                req.has_function = false;
                 self.req_func = std::mem::replace(&mut req.on_data, OnData::Empty);
               }
 
@@ -136,8 +136,10 @@ where
 
                       if self.read_state != ReadState::Chunk {
                         if header_name == "transfer-encoding" {
-                          // TODO: check if we actually have chunk encoding
-                          self.read_state = ReadState::Chunk;
+                          if &header.value[header.value.len() - 7..header.value.len()] == b"chunked"
+                          {
+                            self.read_state = ReadState::Chunk;
+                          }
                         } else if header_name == "content-length" {
                           //TODO: need to handle errors properly
                           self.body_size = std::str::from_utf8(header.value)

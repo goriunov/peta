@@ -1,11 +1,10 @@
 use super::*;
 
 pub struct Request {
-  // internal use only
+  pub data: BytesMut,
   pub(crate) on_data: OnData,
-  pub(crate) has_data_function: bool,
-  pub(crate) data: BytesMut,
   pub(crate) is_last: bool,
+  pub(crate) has_function: bool,
   method: String,
   version: u8,
   request_data: BytesMut,
@@ -15,7 +14,7 @@ pub struct Request {
 impl Request {
   pub fn new() -> Request {
     Request {
-      has_data_function: false,
+      has_function: false,
       is_last: false,
       version: 0,
       on_data: OnData::Empty,
@@ -30,12 +29,16 @@ impl Request {
   where
     F: Fn(ReqResTuple) -> ReturnFuture + Send + Sync + 'static,
   {
-    self.has_data_function = true;
+    self.has_function = true;
     self.on_data = OnData::Function(Box::new(func));
   }
 
   pub fn is_last(&self) -> bool {
     self.is_last
+  }
+
+  pub fn data(&mut self) -> &mut BytesMut {
+    &mut self.data
   }
 
   pub(crate) fn init(&mut self, version: u8, method: String, request_data: BytesMut) {
