@@ -13,7 +13,7 @@ fn main() {
   let mut router = peta::router::Router::new();
   router.get("/", |(mut req, res)| {
     // dbg!("Got in here");
-    req.on_data(|(mut req, res)| {
+    req.on_data(|(req, res)| {
       //   //   // handle rest
       // dbg!(req.data().take());
       // if req.is_last() {
