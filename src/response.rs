@@ -39,6 +39,11 @@ impl Response {
 
     writer::write_all(self, buf)
   }
+
+  pub(crate) fn shutdown(&mut self) {
+    // TODO: handle unwrap
+    self.socket.shutdown().unwrap();
+  }
 }
 
 // fast unsafe push

@@ -15,20 +15,21 @@ fn main() {
     // dbg!("Got in here");
     req.on_data(|(mut req, res)| {
       //   //   // handle rest
-      if req.is_last() {
-        // let data = req.data().take();
-        // //     // dbg!("The last one");
-        return Box::new(
-          res
-            .write("Hello world :)".as_bytes())
-            .map(|res| ((req, res))),
-        );
-      }
+      // dbg!(req.data().take());
+      // if req.is_last() {
+      //   // let data = req.data().take();
+      //   // dbg!("The last one");
+      //   return Box::new(
+      //     res
+      //       .write("Hello world :)".as_bytes())
+      //       .map(|res| ((req, res))),
+      //   );
+      // }
 
       // req.data().take();
 
-      //   // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
-      Box::new(futures::future::ok((req, res)))
+      Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+      // Box::new(futures::future::ok((req, res)))
     });
 
     // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
@@ -40,15 +41,17 @@ fn main() {
     .incoming()
     .map_err(|e| eprintln!("accept failed = {:?}", e))
     .for_each(move |sock| {
+      // sock.shutdown(std::net::Shutdown::Both);
+      // sock.set_keepalive(Some(std::time::Duration::from_secs(1)));
       // sock
       // sock.set_timeout(Duration::from_secs(5));
       let reader = peta::reader::Reader::new(sock.split(), &router)
-        .map_err(|e| println!("{}", e))
+        .map_err(|e| eprintln!("Error {}", e))
         .map(|_| {
           println!("Socket closed");
           ()
         });
-      
+
       tokio::runtime::current_thread::spawn(reader);
 
       Ok(())

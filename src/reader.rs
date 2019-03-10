@@ -1,5 +1,8 @@
 use super::*;
 
+use std::time::{Duration, Instant};
+use tokio::timer::Delay;
+
 #[derive(PartialEq)]
 enum ReadState {
   Body,
@@ -21,6 +24,7 @@ pub struct Reader<T> {
   read_state: ReadState,
   router_raw: *const T,
   process_state: ProcessState,
+  keep_alive_timer: Delay,
 }
 
 impl<T> Reader<T>
@@ -35,6 +39,7 @@ where
       body_size: 0,
       router_raw: router as *const T,
       read_state: ReadState::Request,
+      keep_alive_timer: Delay::new(Instant::now() + Duration::from_secs(10)),
       process_state: ProcessState::Ready((
         request::Request::new(),
         response::Response::new(write_socket),
@@ -51,12 +56,16 @@ where
   type Error = std::io::Error;
 
   fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    // dbg!(self.timer.poll());
     loop {
       match std::mem::replace(&mut self.process_state, ProcessState::Empty) {
         ProcessState::Empty => unreachable!(), // this should never be called
         ProcessState::Processing(mut fut) => {
           match fut.poll()? {
             Async::Ready((mut req, res)) => {
+              self
+                .keep_alive_timer
+                .reset(Instant::now() + Duration::from_secs(10));
               // fetch function from request in to the reader for easier execution
               if req.has_function {
                 req.has_function = false;
@@ -71,7 +80,7 @@ where
             }
           }
         }
-        ProcessState::Ready((mut req, res)) => {
+        ProcessState::Ready((mut req, mut res)) => {
           loop {
             // check what reading state we are in
             match self.read_state {
@@ -186,11 +195,24 @@ where
               // 0 socket is closed :)
               Async::Ready(0) => return Ok(Async::Ready((req, res))),
               // We have some data need to check it in next iter
-              Async::Ready(_) => {}
+              Async::Ready(_) => {
+                self
+                  .keep_alive_timer
+                  .reset(Instant::now() + Duration::from_secs(10));
+              }
               Async::NotReady => {
-                // nothing has been read set our state to ready to process new data in next wake up
-                self.process_state = ProcessState::Ready((req, res));
-                return Ok(Async::NotReady);
+                // TODO: handle unwrap properly
+                match self.keep_alive_timer.poll().unwrap() {
+                  Async::Ready(_) => {
+                    res.shutdown();
+                    return Ok(Async::Ready((req, res)));
+                  }
+                  Async::NotReady => {
+                    // nothing has been read set our state to ready to process new data in next wake up
+                    self.process_state = ProcessState::Ready((req, res));
+                    return Ok(Async::NotReady);
+                  }
+                };
               }
             }
           }
