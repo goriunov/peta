@@ -11,31 +11,46 @@ fn main() {
   // peta::hello()
 
   let mut router = peta::router::Router::new();
-  router.get("/", |(mut req, res)| {
-    // dbg!("Got in here");
-    req.on_data(|(req, res)| {
-      //   //   // handle rest
-      // dbg!(req.data().take());
-      // if req.is_last() {
-      //   // let data = req.data().take();
-      //   // dbg!("The last one");
-      //   return Box::new(
-      //     res
-      //       .write("Hello world :)".as_bytes())
-      //       .map(|res| ((req, res))),
-      //   );
-      // }
 
-      // req.data().take();
-
-      Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
-      // Box::new(futures::future::ok((req, res)))
-    });
-
-    // Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
-
-    return Box::new(futures::future::ok((req, res)));
+  router.add("GET", "/", |(mut req, res)| {
+    Box::new(res.write("Index".as_bytes()).map(|res| ((req, res))))
   });
+
+  router.add("GET", "/hello", |(mut req, res)| {
+    Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+  });
+
+  // router.get("/hello", |(mut req, res)| {
+  //   Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+  // });
+
+  // router.get("/", |(mut req, res)| {
+  //   // dbg!("Got in here");
+
+  //   // // receiving data from request
+  //   // req.on_data(|(req, res)| {
+  //   //   //   //   // handle rest
+  //   //   // dbg!(req.data().take());
+  //   //   // if req.is_last() {
+  //   //   //   // let data = req.data().take();
+  //   //   //   // dbg!("The last one");
+  //   //   //   return Box::new(
+  //   //   //     res
+  //   //   //       .write("Hello world :)".as_bytes())
+  //   //   //       .map(|res| ((req, res))),
+  //   //   //   );
+  //   //   // }
+
+  //   //   // req.data().take();
+
+  //   //   Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+  //   //   // Box::new(futures::future::ok((req, res)))
+  //   // });
+
+  //   Box::new(res.write("Hello world".as_bytes()).map(|res| ((req, res))))
+
+  //   // return Box::new(futures::future::ok((req, res)));
+  // });
 
   let server = listener
     .incoming()

@@ -171,7 +171,12 @@ where
 
                     let method = r.method.unwrap().to_string();
                     let version = r.version.unwrap();
-                    req.init(version, method, self.buffer.split_to(amt));
+                    req.init(
+                      version,
+                      method,
+                      r.path.unwrap().parse::<Uri>().unwrap(),
+                      self.buffer.split_to(amt),
+                    );
 
                     let fut = unsafe { (*self.router_raw).find((req, res)) };
                     self.process_state = ProcessState::Processing(fut.into_future());

@@ -5,6 +5,7 @@ pub struct Request {
   pub(crate) on_data: OnData,
   pub(crate) is_last: bool,
   pub(crate) has_function: bool,
+  pub(crate) uri: Uri,
   method: String,
   version: u8,
   request_data: BytesMut,
@@ -17,6 +18,7 @@ impl Request {
       has_function: false,
       is_last: false,
       version: 0,
+      uri: Uri::default(),
       on_data: OnData::Empty,
       method: String::new(),
       headers: hashbrown::HashMap::new(),
@@ -41,8 +43,9 @@ impl Request {
     &mut self.data
   }
 
-  pub(crate) fn init(&mut self, version: u8, method: String, request_data: BytesMut) {
+  pub(crate) fn init(&mut self, version: u8, method: String, uri: Uri, request_data: BytesMut) {
     self.data.clear();
+    self.uri = uri;
     self.method = method;
     self.version = version;
     self.is_last = false;
